@@ -1,4 +1,4 @@
-# parallelOfeli2
+# parallelOfeli
 
 Implementación paralela de la herramienta Ofeli (Open Fast and Eficient Level set Implementation) basada en el trabajo de una aproximación al Level Set original sin resolver ecuaciones diferenciales[1].
 
