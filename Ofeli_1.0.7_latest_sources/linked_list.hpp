@@ -40,6 +40,7 @@
 #ifndef LINKED_LIST_HPP
 #define LINKED_LIST_HPP
 
+#include <vector>
 #include <omp.h>
 #include <cstdlib> // NULL macro
 #include <iostream> // for operator<< overloading
@@ -364,7 +365,7 @@ public :
     iterator set_dump_after(iterator position);
 
     //! Splits de list in a number of parts equals number of threads
-    Link* splitList();
+    std::vector<list<T> > splitList(int capacity) const;
 
 private :
 

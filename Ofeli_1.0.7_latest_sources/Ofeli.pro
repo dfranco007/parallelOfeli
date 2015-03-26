@@ -48,4 +48,4 @@ win32 : RC_FILE = $$PWD/Ofeli.rc
 
 QMAKE_CXXFLAGS += -fopenmp
 
-QMAKE_CXXFLAGS_RELEASE += -O3
+QMAKE_CXXFLAGS_RELEASE += -O3 -fopenmp

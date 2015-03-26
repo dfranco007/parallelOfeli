@@ -54,6 +54,7 @@ class QScrollBar;
 QT_END_NAMESPACE
 
 #include <QtWidgets>
+#include <vector>
 
 //! [0]
 namespace ofeli
