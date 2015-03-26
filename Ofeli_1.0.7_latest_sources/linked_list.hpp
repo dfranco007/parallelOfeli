@@ -40,6 +40,7 @@
 #ifndef LINKED_LIST_HPP
 #define LINKED_LIST_HPP
 
+#include <omp.h>
 #include <cstdlib> // NULL macro
 #include <iostream> // for operator<< overloading
 
@@ -355,6 +356,15 @@ public :
 
     //! Gets an array with the value of list \a *this.
     T* get_array(int array_length) const;
+
+    ///////////////////////////////////////////////////
+
+
+    //! Sets a dump element after position
+    iterator set_dump_after(iterator position);
+
+    //! Splits de list in a number of parts equals number of threads
+    Link* splitList();
 
 private :
 

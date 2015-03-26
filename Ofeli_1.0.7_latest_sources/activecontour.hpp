@@ -102,6 +102,10 @@ public :
     int get_iteration_max() const;
     //! Getter function for the boolean #isStopped.
     bool get_isStopped() const;
+    //! Divide la lista Lout en varios trozos que corresponden al número de threads.
+    void divide_Lout();
+    //! Divide la lista Lout en varios trozos que corresponden al número de threads.
+    void divide_Lin();
 
 protected :
 

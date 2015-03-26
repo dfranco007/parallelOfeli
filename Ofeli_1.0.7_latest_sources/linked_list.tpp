@@ -786,4 +786,64 @@ T* list<T>::get_array(int array_length) const
     return array;
 }
 
+template <typename T>
+inline typename list<T>::iterator list<T>::set_dump_after(iterator position)
+{
+
+    Link dump_node = Node::new_( T(), NULL );
+
+    //Saving nodes
+    Link end_node = position.node;
+    Link next_node = position.node->next;
+
+    end_node->next = dump_node;
+
+    return next_node;
+}
+
+template <typename T>
+inline typename list<T>::Link* list<T>::splitList()
+{
+    int numThreads;
+    #pragma omp parallel
+    {
+       numThreads =omp_get_num_threads();
+    }
+
+    Link splited_List[numThreads];
+    iterator position = begin();
+    int nElements = size();
+
+    //rest computation to balance the deal
+    int r=0;
+    if( (nElements % numThreads)==1 ) r=1;
+
+    int elemPerThread = (nElements / numThreads) + r;
+    int cont=0;
+    int listNumber=0;
+
+    //Put the first node
+    splited_List[listNumber] = position.node;
+    cont++;
+    listNumber++;
+    ++position;
+
+    while(!position.end())
+    {
+        //Multiple of elemPerThread
+        if((cont % elemPerThread)== 0)
+        {
+            position = set_dump_after(position);
+            splited_List[listNumber] = position.node;
+            listNumber++;
+        }
+        else
+        {
+            ++position;
+        }
+        cont++;
+    }
+    return splited_List;
+}
+
 }

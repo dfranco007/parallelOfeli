@@ -46,4 +46,6 @@ macx : ICON = $$PWD/Ofeli.icns
 
 win32 : RC_FILE = $$PWD/Ofeli.rc
 
+QMAKE_CXXFLAGS += -fopenmp
+
 QMAKE_CXXFLAGS_RELEASE += -O3
