@@ -802,12 +802,12 @@ inline typename list<T>::iterator list<T>::set_dump_after(iterator position)
 }
 
 template <typename T>
-inline std::vector<list<T> > list<T>::splitList(int capacity) const
+inline std::vector<std::list<T> > list<T>::splitList(int capacity) const
 {
-    int numThreads=0;
+    int numThreads=1;
     #pragma omp parallel
     {
-       numThreads =omp_get_num_threads();
+       numThreads = omp_get_num_threads();
     }
     //rest computation to balance the deal
     int nElements = size();
@@ -815,15 +815,13 @@ inline std::vector<list<T> > list<T>::splitList(int capacity) const
     if( (nElements % numThreads)==1 ) r=1;
     int elemPerThread = (nElements / numThreads) + r;
     int cont=1, listNumber=0;
-    std::cout << "elemPerThread: " << elemPerThread << std::endl;
-    std::cout << "numThreads: " << numThreads << std::endl;
 
     //Initialize subLists
-    std::vector<list<T> > splited_List;
+    std::vector<std::list<T> > splited_List;
     for(int i=0; i < numThreads; i++)
     {
         //Initiliaze sublist (creates implicit a dump object)
-        list<T>* newList = new list<T>(capacity);
+        std::list<T>* newList = new std::list<T>(capacity);
         splited_List.push_back(*newList);
     }
 
@@ -834,21 +832,15 @@ inline std::vector<list<T> > list<T>::splitList(int capacity) const
     splited_List[listNumber].push_front(*position);
     ++position;
     cont++;
-
     while(!position.end())
     {
-        //Multiple of elemPerThread
-        if((cont % elemPerThread)== 0)
-        {
-            //Change subList and continue
-            listNumber++;
-        }
-        else
-        {
-            splited_List[listNumber].push_front(*position);
-            ++position;
-            cont++;
-        }
+        splited_List[listNumber].push_front(*position);
+        ++position;
+
+        //Change subList and continue
+        if((cont % elemPerThread)== 0) listNumber++;
+
+        cont++;
     }
     return splited_List;
 }

@@ -2439,7 +2439,12 @@ void ImageViewer::start()
             /////////////////////////////////////
 
             int a = Lout1->size();
-            std::vector<list<int> > SPLITED_LOUT = Lout1->splitList(a/4);
+            std::vector<std::list<int> > SPLITED_LOUT = Lout1->splitList(a/2);
+
+            for(int i=0; i < SPLITED_LOUT.size(); i++)
+            {
+                std::cout << "size: " << SPLITED_LOUT[i].size() << std::endl;
+            }
 
             /////////////////////////////////////
             if( hasClickStopping )
@@ -6317,13 +6322,13 @@ void ImageViewer::mouseMoveEvent(QMouseEvent *event)
                 if( !isRgb1 )
                 {
                     int I = img1[ positionX+positionY*img_width ];
-                    QColor RGB = QColor RGB(I,I,I);
+                    QColor RGB = QColor(I,I,I);
                     pixel_text->setText(tr("img(")+QString::number(positionX)+","+QString::number(positionY)+") = "+"<font color="+RGB.name()+">"+QString::number(I));
 
                 }
                 else
                 {
-                    QColor RGB = QColor RGB(img1[ 3*(positionX+positionY*img_width) ], img1[ 3*(positionX+positionY*img_width)+1 ], img1[ 3*(positionX+positionY*img_width)+2 ]);
+                    QColor RGB = QColor(img1[ 3*(positionX+positionY*img_width) ], img1[ 3*(positionX+positionY*img_width)+1 ], img1[ 3*(positionX+positionY*img_width)+2 ]);
                     pixel_text->setText(tr("img(")+QString::number(positionX)+","+QString::number(positionY)+") = "+"<font color="+RGB.name()+">"+"("+QString::number(img1[ 3*(positionX+positionY*img_width) ])+","+QString::number(img1[ 3*(positionX+positionY*img_width)+1 ])+","+QString::number(img1[ 3*(positionX+positionY*img_width)+2 ])+")");
                 }
 
@@ -6347,7 +6352,7 @@ void ImageViewer::mouseMoveEvent(QMouseEvent *event)
                 {
                     img1_filtered = filters1->get_filtered();
                     int I = img1_filtered[positionX+positionY*img_width];
-                    QColor RGB = QColor RGB(I,I,I);
+                    QColor RGB = QColor(I,I,I);
                     pixel_text->setText(img_str+QString::number(positionX)+","+QString::number(positionY)+") = "+"<font color="+RGB.name()+">"+QString::number(I));
                 }
 
@@ -6357,7 +6362,7 @@ void ImageViewer::mouseMoveEvent(QMouseEvent *event)
                     {
                         img1_filtered = filters1->get_filtered();
 
-                        QColor RGB = QColor RGB(img1_filtered[3*(positionX+positionY*img_width)],img1_filtered[3*(positionX+positionY*img_width)+1],img1_filtered[3*(positionX+positionY*img_width)+2]);
+                        QColor RGB = QColor(img1_filtered[3*(positionX+positionY*img_width)],img1_filtered[3*(positionX+positionY*img_width)+1],img1_filtered[3*(positionX+positionY*img_width)+2]);
 
                         pixel_text->setText(img_str+QString::number(positionX)+","+QString::number(positionY)+") = "+"<font color="+RGB.name()+">"+"("+QString::number(img1_filtered[3*(positionX+positionY*img_width)])+","+QString::number(img1_filtered[3*(positionX+positionY*img_width)+1])+","+QString::number(img1_filtered[3*(positionX+positionY*img_width)+2])+")");
                     }
@@ -6366,7 +6371,7 @@ void ImageViewer::mouseMoveEvent(QMouseEvent *event)
                         img1_filtered = filters1->get_gradient();
 
                         int I = img1_filtered[ positionX+positionY*img_width ];
-                        QColor RGB = QColor RGB(I,I,I);
+                        QColor RGB = QColor(I,I,I);
                         pixel_text->setText(img_str+QString::number(positionX)+","+QString::number(positionY)+") = "+"<font color="+RGB.name()+">"+QString::number(I));
                     }
 
