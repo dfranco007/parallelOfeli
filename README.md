@@ -8,8 +8,7 @@ Versiones:
 
 - Añadida: División de la lista Lin y Lout en tiempo lineal cada una: O(n) + O(m). Siendo n y m las longitudes de las dos listas respectivamente.
 - Mejora: Paralelización de los bluces de recorrido del las listas.
-- Modificada a peor: Aumentada la complejidad del clean_Lin y clean_Lout ya que al utilizar otra implementación de lista el remove es de orden lineal. cleans= O(n^2) y O(m^2) respec.
-- Añadida: Recronstrucción de las listas= O(n) + O(m)
+- Añadida: Recronstrucción de las listas = O(n) + O(m)
 
 ******************************
 
