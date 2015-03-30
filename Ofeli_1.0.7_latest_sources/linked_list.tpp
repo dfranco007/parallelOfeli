@@ -785,7 +785,7 @@ T* list<T>::get_array(int array_length) const
 
     return array;
 }
-
+/*
 template <typename T>
 inline typename list<T>::iterator list<T>::set_dump_after(iterator position)
 {
@@ -799,10 +799,10 @@ inline typename list<T>::iterator list<T>::set_dump_after(iterator position)
     end_node->next = dump_node;
 
     return next_node;
-}
+}*/
 
 template <typename T>
-inline std::vector<std::list<T> > list<T>::splitList(int capacity) const
+inline std::vector<std::list<T> > list<T>::splitList() const
 {
     int numThreads=1;
     #pragma omp parallel
@@ -814,6 +814,7 @@ inline std::vector<std::list<T> > list<T>::splitList(int capacity) const
     int r=0;
     if( (nElements % numThreads)==1 ) r=1;
     int elemPerThread = (nElements / numThreads) + r;
+
     int cont=1, listNumber=0;
 
     //Initialize subLists
@@ -821,7 +822,7 @@ inline std::vector<std::list<T> > list<T>::splitList(int capacity) const
     for(int i=0; i < numThreads; i++)
     {
         //Initiliaze sublist (creates implicit a dump object)
-        std::list<T>* newList = new std::list<T>(capacity);
+        std::list<T>* newList = new std::list<T>;
         splited_List.push_back(*newList);
     }
 

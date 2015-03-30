@@ -71,7 +71,8 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
     img_size(img_width1*img_height1), kernel_radius( (kernel_length1-1)/2 ), phi( new char[img_width1*img_height1] ),
     gaussian_kernel( make_gaussian_kernel(kernel_length1,sigma1) ), iteration_max( 5*std::max(img_width1,img_height1) ),
     iteration(0), Na(0), Ns(0), previous_lists_length(99999999), lists_length(0), oscillations_in_a_row(0),
-    Lout( std::max(10000,std::min(100000,img_width1*img_height1/5)) ), Lin( std::max(10000,std::min(100000,img_width1*img_height1/5)) )
+    Lout( std::max(10000,std::min(100000,img_width1*img_height1/5)) ), Lin( std::max(10000,std::min(100000,img_width1*img_height1/5)) ),
+    ListSize(std::max(10000,std::min(100000,img_width1*img_height1/5)) )
 {
     if( img_data1 == NULL )
     {
@@ -92,7 +93,8 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
     img_size(img_width1*img_height1), kernel_radius( (kernel_length1-1)/2 ), phi( new char[img_width1*img_height1] ),
     gaussian_kernel( make_gaussian_kernel(kernel_length1,sigma1) ), iteration_max( 5*std::max(img_width1,img_height1) ),
     iteration(0), Na(0), Ns(0), previous_lists_length(99999999), lists_length(0), oscillations_in_a_row(0),
-    Lout( std::max(10000,std::min(100000,img_width1*img_height1/5)) ), Lin( std::max(10000,std::min(100000,img_width1*img_height1/5)) )
+    Lout( std::max(10000,std::min(100000,img_width1*img_height1/5)) ), Lin( std::max(10000,std::min(100000,img_width1*img_height1/5)) ),
+    ListSize(std::max(10000,std::min(100000,img_width1*img_height1/5)) )
 {
     if( img_data1 == NULL )
     {
@@ -123,7 +125,8 @@ ActiveContour::ActiveContour(const ActiveContour& ac) :
     isStopped(ac.isStopped), hasLastCycle2(ac.hasLastCycle2), hasListsChanges(ac.hasListsChanges),
     hasOscillation(ac.hasOscillation),
     hasOutwardEvolution(ac.hasOutwardEvolution), hasInwardEvolution(ac.hasInwardEvolution),
-    Lout(ac.Lout), Lin(ac.Lin) // linked list ofeli::list has an implemented copy constructor
+    Lout(ac.Lout), Lin(ac.Lin),
+    ListSize(ac.ListSize)// linked list ofeli::list has an implemented copy constructor
 {
     if( ac.img_data == NULL )
     {
@@ -304,56 +307,81 @@ void ActiveContour::do_one_iteration_in_cycle1()
     // means of the Chan-Vese model for children classes ACwithoutEdges and ACwithoutEdgesYUV
     calculate_means(); // virtual function for region-based models
 
-
     hasOutwardEvolution = false;
+/*
+    //Splits lists
+    std::cout << "Lista Lout entera: , size: " << Lout.size()<< std::endl;
 
-    for( ofeli::list<int>::iterator Lout_point = Lout.begin(); !Lout_point.end();   )
+    for(list<int>::iterator ite = Lout.begin(); !ite.end(); ++ite)
+        std::cout << *ite << ", ";
+    std::cout << std::endl;
+*/
+    Splited_Lout = Lout.splitList();
+/*
+    for(int i=0; i < 2; i++)
     {
-        if( compute_external_speed_Fd(*Lout_point) > 0 )
+        std::cout << "Lista " << i << ", size: " << Splited_Lout[i].size() <<  std::endl;
+        for(std::list<int>::iterator ite = Splited_Lout[i].begin(); ite != Splited_Lout[i].end(); ite++)
         {
-            hasOutwardEvolution = true;
-
-            // updates of the variables to calculate the means Cout and Cin
-            updates_for_means_in1(); // virtual function for region-based models
-
-            Lout_point = switch_in(Lout_point); // outward local movement
-            // switch_in function returns a new Lout_point
-            // which is the next point of the former Lout_point
+            std::cout << *ite << ", ";
         }
-        else
+        std::cout << std::endl;
+    }
+*/
+    Splited_Lin = Lin.splitList();
+
+    int tid;
+
+    #pragma omp parallel private(tid)
+    {
+        tid = omp_get_thread_num();
+
+        for( std::list<int>::iterator Lout_point = Splited_Lout[tid].begin(); Lout_point!= Splited_Lout[tid].end();   )
         {
-            ++Lout_point;
+            if( compute_external_speed_Fd(*Lout_point) > 0 )
+            {
+                hasOutwardEvolution = true;
+
+                // updates of the variables to calculate the means Cout and Cin
+                updates_for_means_in1(); // virtual function for region-based models
+
+                Lout_point = switch_in(Lout_point,tid); // outward local movement
+                // switch_in function returns a new Lout_point
+                // which is the next point of the former Lout_point
+            }
+            else
+            {
+                ++Lout_point;
+            }
         }
+        clean_Lin(tid); // eliminate Lin redundant points
+
+        hasInwardEvolution = false;
+
+        for( std::list<int>::iterator Lin_point = Splited_Lin[tid].begin(); Lin_point != Splited_Lin[tid].end();   )
+        {
+            if( compute_external_speed_Fd(*Lin_point) < 0 )
+            {
+                hasInwardEvolution = true;
+
+                // updates of the variables to calculate the means Cout and Cin
+                updates_for_means_out1(); // virtual function for region-based models
+
+                Lin_point = switch_out(Lin_point,tid); // inward local movement
+                // switch_out function returns a new Lin_point
+                // which is the next point of the former Lin_point
+            }
+            else
+            {
+                ++Lin_point;
+            }
+        }
+
+        clean_Lout(tid); // eliminate Lout redundant points
     }
 
-
-    clean_Lin(); // eliminate Lin redundant points
-
-
-    hasInwardEvolution = false;
-
-    for( ofeli::list<int>::iterator Lin_point = Lin.begin(); !Lin_point.end();   )
-    {
-        if( compute_external_speed_Fd(*Lin_point) < 0 )
-        {
-            hasInwardEvolution = true;
-
-            // updates of the variables to calculate the means Cout and Cin
-            updates_for_means_out1(); // virtual function for region-based models
-
-            Lin_point = switch_out(Lin_point); // inward local movement
-            // switch_out function returns a new Lin_point
-            // which is the next point of the former Lin_point
-        }
-        else
-        {
-            ++Lin_point;
-        }
-    }
-
-
-    clean_Lout(); // eliminate Lout redundant points
-
+    Lout = collectList(Splited_Lout);
+    Lin = collectList(Splited_Lin);
 
     iteration++;
 
@@ -367,55 +395,69 @@ void ActiveContour::do_one_iteration_in_cycle2()
     lists_length = 0;
 
 
-    // scan through Lout with a conditional increment
-    for( ofeli::list<int>::iterator Lout_point = Lout.begin(); !Lout_point.end();   )
+    //Splits lists
+    Splited_Lout = Lout.splitList();
+    Splited_Lin = Lin.splitList();
+
+    int tid;
+
+    #pragma omp parallel private(tid)
     {
-        offset = *Lout_point;
+        tid = omp_get_thread_num();
 
-        if( compute_internal_speed_Fint(offset) > 0 )
+        // scan through Lout with a conditional increment
+        for( std::list<int>::iterator Lout_point = Splited_Lout[tid].begin(); Lout_point!= Splited_Lout[tid].end();   )
         {
-            // updates of the variables to calculate the means Cout and Cin
-            updates_for_means_in2(offset); // virtual function for region-based models
+            offset = *Lout_point;
 
-            Lout_point = switch_in(Lout_point); // outward local movement
-            // switch_in function returns a new Lout_point
-            // which is the next point of the former Lout_point
+            if( compute_internal_speed_Fint(offset) > 0 )
+            {
+                // updates of the variables to calculate the means Cout and Cin
+                updates_for_means_in2(offset); // virtual function for region-based models
+
+                Lout_point = switch_in(Lout_point,tid); // outward local movement
+                // switch_in function returns a new Lout_point
+                // which is the next point of the former Lout_point
+            }
+            else
+            {
+                lists_length++;
+                ++Lout_point;
+            }
         }
-        else
+
+
+        clean_Lin(tid); // eliminate Lin redundant points
+
+
+        // scan through Lin with a conditional increment
+        for( std::list<int>::iterator Lin_point = Splited_Lin[tid].begin(); Lin_point!= Splited_Lin[tid].end();   )
         {
-            lists_length++;
-            ++Lout_point;
+            offset = *Lin_point;
+
+            if( compute_internal_speed_Fint(offset) < 0 )
+            {
+                // updates of the variables to calculate the means Cout and Cin
+                updates_for_means_out2(offset); // virtual function for region-based models
+
+                Lin_point = switch_out(Lin_point,tid); // inward local movement
+                // switch_out function returns a new Lin_point
+                // which is the next point of the former Lin_point
+            }
+            else
+            {
+                lists_length++;
+                ++Lin_point;
+            }
         }
+
+
+        clean_Lout(tid); // eliminate Lout redundant points
+
     }
 
-
-    clean_Lin(); // eliminate Lin redundant points
-
-
-    // scan through Lin with a conditional increment
-    for( ofeli::list<int>::iterator Lin_point = Lin.begin(); !Lin_point.end();   )
-    {
-        offset = *Lin_point;
-
-        if( compute_internal_speed_Fint(offset) < 0 )
-        {
-            // updates of the variables to calculate the means Cout and Cin
-            updates_for_means_out2(offset); // virtual function for region-based models
-
-            Lin_point = switch_out(Lin_point); // inward local movement
-            // switch_out function returns a new Lin_point
-            // which is the next point of the former Lin_point
-        }
-        else
-        {
-            lists_length++;
-            ++Lin_point;
-        }
-    }
-
-
-    clean_Lout(); // eliminate Lout redundant points
-
+    Lout = collectList(Splited_Lout);
+    Lin = collectList(Splited_Lin);
 
     iteration++;
 
@@ -526,41 +568,56 @@ void ActiveContour::evolve()
     return;
 }
 
-void ActiveContour::add_Rout_neighbor_to_Lout(int neighbor_offset)
+void ActiveContour::add_Rout_neighbor_to_Lout(int neighbor_offset,int tid)
 {
     // if a neighbor ∈ Rout
+
     if( phi[neighbor_offset] == 3 ) // exterior value
     {
-        phi[neighbor_offset] = 1; // outside boundary value
+        #pragma omp critical
+        {
+            //Test, test and set
+            if( phi[neighbor_offset] == 3 )
+            {
+                phi[neighbor_offset] = 1; // outside boundary value
 
-        // neighbor ∈ Rout ==> ∈ neighbor Lout
-        Lout.push_front(neighbor_offset);
-        // due to the linked list implementation
-        // with a sentinel/dummy node after the last node and not before the first node ;
-        // 'push_front' never invalidates iterator 'Lout_point', even if 'Lout_point' points to the first node.
+                // neighbor ∈ Rout ==> ∈ neighbor Lout
+                Splited_Lout[tid].push_front(neighbor_offset);
+                // due to the linked list implementation
+                // with a sentinel/dummy node after the last node and not before the first node ;
+                // 'push_front' never invalidates iterator 'Lout_point', even if 'Lout_point' points to the first node.
+            }
+        }
     }
 
     return;
 }
 
-void ActiveContour::add_Rin_neighbor_to_Lin(int neighbor_offset)
+void ActiveContour::add_Rin_neighbor_to_Lin(int neighbor_offset,int tid)
 {
     // if a neighbor ∈ Rin
     if( phi[neighbor_offset] == -3 ) // interior value
     {
-        phi[neighbor_offset] = -1; // inside boundary value
+        #pragma omp critical
+        {
+            //Test, test and set
+            if( phi[neighbor_offset] == -3 ) // interior value
+            {
+               phi[neighbor_offset] = -1; // inside boundary value
 
-        // neighbor ∈ Rin ==> ∈ neighbor Lin
-        Lin.push_front(neighbor_offset);
-        // due to the linked list implementation
-        // with a sentinel/dummy node after the last node and not before the first node ;
-        // 'push_front' never invalidates iterator 'Lin_point', even if 'Lin_point' points to the first node.
+               // neighbor ∈ Rin ==> ∈ neighbor Lin
+               Splited_Lin[tid].push_front(neighbor_offset);
+               // due to the linked list implementation
+               // with a sentinel/dummy node after the last node and not before the first node ;
+               // 'push_front' never invalidates iterator 'Lin_point', even if 'Lin_point' points to the first node.
+            }
+        }
     }
 
     return;
 }
 
-ofeli::list<int>::iterator ActiveContour::switch_in(ofeli::list<int>::iterator Lout_point)
+std::list<int>::iterator ActiveContour::switch_in(std::list<int>::iterator Lout_point, int tid)
 {
     int offset, x, y;
     offset = *Lout_point;
@@ -573,19 +630,19 @@ ofeli::list<int>::iterator ActiveContour::switch_in(ofeli::list<int>::iterator L
     //==========   4-connected neighborhood   =========
     if( y > 0 )
     {
-        add_Rout_neighbor_to_Lout( find_offset(x,y-1) );
+        add_Rout_neighbor_to_Lout( find_offset(x,y-1), tid );
     }
     if( x > 0 )
     {
-        add_Rout_neighbor_to_Lout( find_offset(x-1,y) );
+        add_Rout_neighbor_to_Lout( find_offset(x-1,y), tid );
     }
     if( x < img_width-1 )
     {
-        add_Rout_neighbor_to_Lout( find_offset(x+1,y) );
+        add_Rout_neighbor_to_Lout( find_offset(x+1,y), tid );
     }
     if( y < img_height-1 )
     {
-        add_Rout_neighbor_to_Lout( find_offset(x,y+1) );
+        add_Rout_neighbor_to_Lout( find_offset(x,y+1), tid );
     }
     //=================================================
 
@@ -602,7 +659,7 @@ ofeli::list<int>::iterator ActiveContour::switch_in(ofeli::list<int>::iterator L
             {
                 if( !( dx == 0 && dy == 0 ) )
                 {
-                    add_Rout_neighbor_to_Lout( find_offset(x+dx,y+dy) );
+                    add_Rout_neighbor_to_Lout( find_offset(x+dx,y+dy), tid );
                 }
             }
         }
@@ -620,7 +677,7 @@ ofeli::list<int>::iterator ActiveContour::switch_in(ofeli::list<int>::iterator L
                     // existence tests
                     if( x+dx >= 0 && x+dx < img_width && y+dy >= 0 && y+dy < img_height )
                     {
-                        add_Rout_neighbor_to_Lout( find_offset(x+dx,y+dy) );
+                        add_Rout_neighbor_to_Lout( find_offset(x+dx,y+dy), tid );
                     }
                 }
             }
@@ -631,12 +688,21 @@ ofeli::list<int>::iterator ActiveContour::switch_in(ofeli::list<int>::iterator L
     #endif
 
     phi[offset] = -1; // 1 ==> -1
-    return Lin.splice_front(Lout_point); // Lout_point ∈ Lout ==> Lout_point ∈ Lin
-    // return a new Lout_point which is the next point of the former Lout_point
-    // obviously, this new Lout_point ∈ Lout
+
+    //Save the current position
+    std::list<int>::iterator iterAux = Lout_point;
+    iterAux++;
+
+    //Moves element pointed by Lout_point to Splited_Lin[tid] list
+    Splited_Lin[tid].splice(Splited_Lin[tid].begin(),Splited_Lout[tid],Lout_point);
+
+    //Modify iterator
+    Lout_point = iterAux;
+
+    return  Lout_point;
 }
 
-ofeli::list<int>::iterator ActiveContour::switch_out(ofeli::list<int>::iterator Lin_point)
+std::list<int>::iterator ActiveContour::switch_out(std::list<int>::iterator Lin_point,int tid)
 {
     int offset, x, y;
     offset = *Lin_point;
@@ -649,19 +715,19 @@ ofeli::list<int>::iterator ActiveContour::switch_out(ofeli::list<int>::iterator 
     //==========   4-connected neighborhood   =========
     if( y > 0 )
     {
-        add_Rin_neighbor_to_Lin( find_offset(x,y-1) );
+        add_Rin_neighbor_to_Lin( find_offset(x,y-1), tid );
     }
     if( x > 0 )
     {
-        add_Rin_neighbor_to_Lin( find_offset(x-1,y) );
+        add_Rin_neighbor_to_Lin( find_offset(x-1,y), tid );
     }
     if( x < img_width-1 )
     {
-        add_Rin_neighbor_to_Lin( find_offset(x+1,y) );
+        add_Rin_neighbor_to_Lin( find_offset(x+1,y), tid );
     }
     if( y < img_height-1 )
     {
-        add_Rin_neighbor_to_Lin( find_offset(x,y+1) );
+        add_Rin_neighbor_to_Lin( find_offset(x,y+1), tid );
     }
     //=================================================
 
@@ -678,7 +744,7 @@ ofeli::list<int>::iterator ActiveContour::switch_out(ofeli::list<int>::iterator 
             {
                 if( !( dx == 0 && dy == 0 ) )
                 {
-                    add_Rin_neighbor_to_Lin( find_offset(x+dx,y+dy) );
+                    add_Rin_neighbor_to_Lin( find_offset(x+dx,y+dy), tid );
                 }
             }
         }
@@ -696,7 +762,7 @@ ofeli::list<int>::iterator ActiveContour::switch_out(ofeli::list<int>::iterator 
                     // existence tests
                     if( x+dx >= 0 && x+dx < img_width && y+dy >= 0 && y+dy < img_height )
                     {
-                        add_Rin_neighbor_to_Lin( find_offset(x+dx,y+dy) );
+                        add_Rin_neighbor_to_Lin( find_offset(x+dx,y+dy), tid );
                     }
                 }
             }
@@ -707,9 +773,18 @@ ofeli::list<int>::iterator ActiveContour::switch_out(ofeli::list<int>::iterator 
     #endif
 
     phi[offset] = 1; // -1 ==> 1
-    return Lout.splice_front(Lin_point); // Lin_point ∈ Lin ==> Lin_point ∈ Lout
-    // return a new Lin_point which is the next point of the former Lin_point
-    // obviously, this new Lin_point ∈ Lin
+
+    //Save the current position
+    std::list<int>::iterator iterAux = Lin_point;
+    iterAux++;
+
+    //Moves element pointed by Lin_point to Splited_Lout[tid] list
+    Splited_Lout[tid].splice(Splited_Lout[tid].begin(),Splited_Lin[tid],Lin_point);
+
+    //Modify iterator
+    Lin_point = iterAux;
+
+    return  Lin_point;
 }
 
 int ActiveContour::compute_internal_speed_Fint(int offset)
@@ -941,12 +1016,12 @@ bool ActiveContour::isRedundantLoutPoint(int offset) const
     return true; // is redundant point of Lout
 }
 
-void ActiveContour::clean_Lin()
+void ActiveContour::clean_Lin(int tid)
 {
     int offset;
 
     // scan through Lin with a conditional increment
-    for( ofeli::list<int>::iterator Lin_point = Lin.begin(); !Lin_point.end();   )
+    for( std::list<int>::iterator Lin_point =  Splited_Lin[tid].begin(); Lin_point !=Splited_Lin[tid].end();   )
     {
         offset = *Lin_point;
 
@@ -954,7 +1029,7 @@ void ActiveContour::clean_Lin()
         if( isRedundantLinPoint(offset) )
         {
             phi[offset] = -3; // -1 ==> -3
-            Lin_point = Lin.erase(Lin_point); // Lin_point ∈ Lin ==> Lin_point ∈ Rin
+            Lin_point =  Splited_Lin[tid].erase(Lin_point); // Lin_point ∈ Lin ==> Lin_point ∈ Rin
             // erase function returns a new Lin_point
             // which is the next point of the former Lin_point
         }
@@ -967,12 +1042,12 @@ void ActiveContour::clean_Lin()
     return;
 }
 
-void ActiveContour::clean_Lout()
+void ActiveContour::clean_Lout(int tid)
 {
     int offset;
 
     // scan through Lout with a conditional increment
-    for( ofeli::list<int>::iterator Lout_point = Lout.begin(); !Lout_point.end();   )
+    for( std::list<int>::iterator Lout_point =  Splited_Lout[tid].begin(); Lout_point !=Splited_Lout[tid].end();   )
     {
         offset = *Lout_point;
 
@@ -980,7 +1055,7 @@ void ActiveContour::clean_Lout()
         if( isRedundantLoutPoint(offset) )
         {
             phi[offset] = 3; // 1 ==> 3
-            Lout_point = Lout.erase(Lout_point); // Lout_point ∈ Lout ==> Lout_point ∈ Rout
+            Lout_point = Splited_Lout[tid].erase(Lout_point); // Lout_point ∈ Lout ==> Lout_point ∈ Rout
             // erase function returns a new Lout_point
             // which is the next point of the former Lout_point
         }
@@ -1196,5 +1271,22 @@ bool ActiveContour::get_isStopped() const
 {
     return isStopped;
 }
+
+
+list<int> ActiveContour::collectList(std::vector<std::list<int> > v)
+{
+    ofeli::list<int> newList( v[0].size() * 10);
+
+    for(int i=0; i < v.size(); i++)
+    {
+        for(std::list<int>::iterator ite = v[i].begin(); ite != v[i].end();ite++)
+        {
+            newList.push_front(*ite);
+        }
+    }
+
+    return newList;
+}
+
 
 }

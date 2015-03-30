@@ -147,16 +147,16 @@ private :
 
 
     //! Outward local movement of the curve for a current point (\a x,\a y) of #Lout that is switched in #Lin.
-    ofeli::list<int>::iterator switch_in(ofeli::list<int>::iterator Lout_point);
+    std::list<int>::iterator switch_in(std::list<int>::iterator Lout_point, int tid);
 
     //! Second step of procedure #switch_in.
-    void add_Rout_neighbor_to_Lout(int neighbor_offset);
+    void add_Rout_neighbor_to_Lout(int neighbor_offset, int tid);
 
     //! Inward local movement of the curve for a current point (\a x,\a y) of #Lin that is switched in #Lout.
-    ofeli::list<int>::iterator switch_out(ofeli::list<int>::iterator Lin_point);
+    std::list<int>::iterator switch_out(std::list<int>::iterator Lin_point, int tid);
 
     //! Second step of procedure #switch_out.
-    void add_Rin_neighbor_to_Lin(int neighbor_offset);
+    void add_Rin_neighbor_to_Lin(int neighbor_offset, int tid);
 
     //! Computes the internal speed  Fint for a current point (\a x,\a y) of #Lout or #Lin.
     int compute_internal_speed_Fint(int offset);
@@ -168,13 +168,13 @@ private :
     bool isRedundantLinPoint(int offset) const;
 
     //! Eliminates redundant points in #Lin. Each point of a list must be connected at least by one point of the other list.
-    void clean_Lin();
+    void clean_Lin(int tid);
 
     //! Finds if a current point (\a x,\a y) of #Lout is redundant.
     bool isRedundantLoutPoint(int offset) const;
 
     //! Eliminates redundant points in #Lout. Each point of a list must be connected at least by one point of the other list.
-    void clean_Lout();
+    void clean_Lout(int tid);
 
 
 
@@ -209,7 +209,8 @@ private :
     //! Gives the sign of a value. Return the integer -1 or 1.
     static int signum_function(char value);
 
-
+    //! Return all elements of lists of the vector v in a new list
+    ofeli::list<int> collectList(std::vector<std::list<int> > v);
 
     //! Boolean egals to \c true to have the curve smoothing, evolutions in the cycle 2 with the internal speed Fint.
     const bool hasCycle2;
@@ -263,6 +264,14 @@ private :
     int oscillations_in_a_row;
     //! Boolean calculated at the end of each iteration of the cycle 1 with function \a calculate_stopping_conditions1().
     bool hasLastCycle2;
+
+    //! Size of Lin and Lout
+    int ListSize;
+    //! Splited Lout
+    std::vector<std::list<int> > Splited_Lout;
+    //! Splited Lin
+    std::vector<std::list<int> > Splited_Lin;
+
 };
 
 // Definitions

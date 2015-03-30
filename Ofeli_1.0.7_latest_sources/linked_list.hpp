@@ -361,12 +361,13 @@ public :
 
     ///////////////////////////////////////////////////
 
-
+    /*
     //! Sets a dump element after position
     iterator set_dump_after(iterator position);
-
+    */
     //! Splits de list in a number of parts equals number of threads
-    std::vector<std::list<T> > splitList(int capacity) const;
+    //! without modifying the original list
+    std::vector<std::list<T> > splitList() const;
 
 private :
 

@@ -2436,17 +2436,6 @@ void ImageViewer::start()
             // Affichage
             imageLabel->update();
 
-            /////////////////////////////////////
-
-            int a = Lout1->size();
-            std::vector<std::list<int> > SPLITED_LOUT = Lout1->splitList(a/2);
-
-            for(int i=0; i < SPLITED_LOUT.size(); i++)
-            {
-                std::cout << "size: " << SPLITED_LOUT[i].size() << std::endl;
-            }
-
-            /////////////////////////////////////
             if( hasClickStopping )
             {
                 show_phi_list_value();
