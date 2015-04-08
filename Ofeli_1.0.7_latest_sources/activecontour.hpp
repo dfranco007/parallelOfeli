@@ -42,6 +42,7 @@
 
 #include "linked_list.hpp"
 #include <iostream> // for the objects "std::ostream" and "std::cerr"
+#include <omp.h>
 
 namespace ofeli
 {
@@ -147,13 +148,13 @@ private :
 
 
     //! Outward local movement of the curve for a current point (\a x,\a y) of #Lout that is switched in #Lin.
-    std::list<int>::iterator switch_in(std::list<int>::iterator Lout_point, int tid);
+    list<int>::iterator switch_in(list<int>::iterator Lout_point, int tid);
 
     //! Second step of procedure #switch_in.
     void add_Rout_neighbor_to_Lout(int neighbor_offset, int tid);
 
     //! Inward local movement of the curve for a current point (\a x,\a y) of #Lin that is switched in #Lout.
-    std::list<int>::iterator switch_out(std::list<int>::iterator Lin_point, int tid);
+    list<int>::iterator switch_out(list<int>::iterator Lin_point, int tid);
 
     //! Second step of procedure #switch_out.
     void add_Rin_neighbor_to_Lin(int neighbor_offset, int tid);
@@ -209,9 +210,6 @@ private :
     //! Gives the sign of a value. Return the integer -1 or 1.
     static int signum_function(char value);
 
-    //! Return all elements of lists of the vector v in a new list
-    ofeli::list<int> collectList(std::vector<std::list<int> > v);
-
     //! Boolean egals to \c true to have the curve smoothing, evolutions in the cycle 2 with the internal speed Fint.
     const bool hasCycle2;
     //! Kernel length of the gaussian filter for the curve smoothing.
@@ -230,9 +228,9 @@ private :
     bool isStopped;
 
     //! List of points belong to the outside boundary.
-    ofeli::list<int> Lout;
+    list<int> Lout;
     //! List of points belong to the inside boundary.
-    ofeli::list<int> Lin;
+    list<int> Lin;
 
     //! \a kernel_radius = (  #kernel_length - 1) / 2 with #kernel_length impair.
     const int kernel_radius;
@@ -265,12 +263,12 @@ private :
     //! Boolean calculated at the end of each iteration of the cycle 1 with function \a calculate_stopping_conditions1().
     bool hasLastCycle2;
 
-    //! Size of Lin and Lout
-    int ListSize;
     //! Splited Lout
-    std::vector<std::list<int> > Splited_Lout;
+    std::vector<list<int> *> Splited_Lout;
     //! Splited Lin
-    std::vector<std::list<int> > Splited_Lin;
+    std::vector<list<int> *> Splited_Lin;
+    //!Number of threads
+    int numThreads;
 
 };
 

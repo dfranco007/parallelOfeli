@@ -40,60 +40,16 @@
 namespace ofeli
 {
 
-template <typename T>
-typename list<T>::Link list<T>::mem_head = NULL;
-
 ///////////////////// list initialization/destruction /////////////////////
 
 template <typename T>
-void list<T>::alloc_mem_pool()
+list<T>::list() : head(new Node( T(), NULL ,NULL)), tail(head)
 {
-    // build a part of the shared linked list memory pool
-    Link new_mem_head;
-    for( int i = 0; i < mem_pool_size; i++ )
-    {
-        new_mem_head = new Node( T(), mem_head );
-        mem_head = new_mem_head; // update of the head link of the memory pool linked list
-    }
-
-    // * creates sentinel/dummy node after the last node and not before the first node
-    // ==> 'push_front' a value never invalidates an iterator,
-    // even if this iterator is on the first node.
-    // ==> 'erase' is possible for every element of a list (instead of 'erase_after'),
-    // even for the last node.
-
-    // push_front property is required for the fast level set algorithm
-
-    //head = new Node( T(), NULL ); // *
-    head = Node::new_( T(), NULL ); // with memory_pool
-
-    return;
 }
 
 template <typename T>
-list<T>::list(int mem_pool_size1) : mem_pool_size(mem_pool_size1) // *
+list<T>::list(const list& copied)
 {
-    alloc_mem_pool();
-}
-
-template <typename T>
-list<T>::list(int mem_pool_size1, int n, const T& value) : mem_pool_size(mem_pool_size1) // *
-{
-    alloc_mem_pool();
-    assign(n,value);
-}
-
-template <typename T>
-list<T>::list(int mem_pool_size1, const T array[], int array_length) : mem_pool_size(mem_pool_size1) // *
-{
-    alloc_mem_pool();
-    assign(array,array_length);
-}
-
-template <typename T>
-list<T>::list(int mem_pool_size1, const list& copied) : mem_pool_size(mem_pool_size1) // *
-{
-    alloc_mem_pool();
     push_front(copied);
 }
 
@@ -173,15 +129,7 @@ list<T>::~list()
     {
         pop_front();
     }
-
-    // delete a part of the shared linked list memory pool
-    Link new_head;
-    for( int i = 0; i < mem_pool_size; i++ )
-    {
-        new_head = mem_head->next;
-        delete mem_head; // delete the first node
-        mem_head = new_head;
-    }
+    head = NULL;
 }
 
 template <typename T>
@@ -205,6 +153,12 @@ typename list<T>::iterator list<T>::begin()
     return head; // implicit type conversion
     // iterator encapsulates a Link which is a pointer to a Node
 }
+template <typename T>
+typename list<T>::iterator list<T>::end()
+{
+    return tail; // implicit type conversion
+    // iterator encapsulates a Link which is a pointer to a Node
+}
 
 template <typename T>
 typename list<T>::const_iterator list<T>::begin() const // const overloading
@@ -213,6 +167,12 @@ typename list<T>::const_iterator list<T>::begin() const // const overloading
     // iterator encapsulates a Link which is a pointer to a Node
 }
 
+template <typename T>
+typename list<T>::const_iterator list<T>::end() const // const overloading
+{
+    return tail; // implicit type conversion
+    // iterator encapsulates a Link which is a pointer to a Node
+}
 
 ////////////////////////////// list changes ///////////////////////////////
 
@@ -261,23 +221,25 @@ inline void list<T>::pop_front()
 {
     Link new_head = head->next;
 
-    //delete head; // delete the first node
-    Node::delete_(head); // with memory_pool
+    delete head;
 
     head = new_head;
+    if(head->data == T()) tail = head;
     return;
 }
 
 template <typename T>
 inline void list<T>::push_front(const T& value)
 {
-    // it never invalidates an iterator of *this
-    // to link the new head node to the former head node
+    Node* newNode = new Node(value,head,NULL);
 
-    //Link new_head = new Node(value,head);
-    Link new_head = Node::new_(value,head); // with memory_pool
+    head->previous = newNode;
 
-    head = new_head; // update of the head link
+    Link aux = head;
+
+    head = newNode;
+
+    if(**aux == T()) tail = head;
 
     return;
 }
@@ -285,21 +247,8 @@ inline void list<T>::push_front(const T& value)
 template <typename T>
 inline void list<T>::push_front(const list& copied)
 {
-    iterator         it_this = this->begin();
-    const_iterator it_copied = copied.begin();
-
-    if( !it_copied.end() )
-    {
-        // insert the first node
-        it_this = insert_before(it_this,*it_copied);
-        ++it_copied;
-    }
-
-    for(  ; !it_copied.end(); ++it_copied )
-    {
-        // insert the other nodes
-        it_this = insert_after(it_this,*it_copied);
-    }
+    copied.tail->next = head;
+    head =  copied.head;
 
     return;
 }
@@ -335,363 +284,72 @@ inline void list<T>::put_away(const T& value)
 template <typename T>
 inline typename list<T>::iterator list<T>::insert_before(iterator position, const T& value)
 {
-    //Link new_node = new Node(*position.node);
-    Link new_node = Node::new_(*position.node); // with memory_pool
+    Link previousNode = position.node->previous;
 
-    position.node->data = value;
-    position.node->next = new_node;
-    return position;
+    Node* newNode = new Node(value,position.node,previousNode);
+    previousNode->next = newNode;
+
+    position.node->previous = newNode;
+
+    return ++position;
 }
 
 template <typename T>
 inline typename list<T>::iterator list<T>::insert_after(iterator position, const T& value)
 {
-    //Link new_node = new Node(value,position.node->next);
-    Link new_node = Node::new_(value,position.node->next); // with memory_pool
+    Node* newNode = new Node(value,position.node->next, position.node);
 
-    position.node->next = new_node;
-    return new_node; // implicit type conversion
-    // iterator encapsulates a Link which is a pointer to a Node
+    Link nextNode = position.node->next;
+    nextNode->previous = newNode;
+    position.node->next = newNode;
+
+    if(tail == position.node) tail = newNode;
+
+    return newNode->next;
 }
 
 template <typename T>
 inline typename list<T>::iterator list<T>::erase(iterator position)
-{    
-    Link next_node = position.node->next;
+{
+    std::cout << "POs: " << *position << std::endl;
+    Link previousNode = position.node->previous;
+    previousNode->next = position.node->next;
 
-    // copy the next node to the node
-    *position.node = *next_node;
-    //  <==> position.node->data = next_node->data; position.node->next = next_node->next;
+    Link nextNode = position.node->next;
+    nextNode->previous = previousNode;
 
-    //delete next_node; // erase the next node
-    Node::delete_(next_node); // with memory_pool
+    Link deleteNode = position.node;
+    if(deleteNode == tail) tail = previousNode;
 
-    return position;
+    delete &position.node;
+
+    return nextNode;
 }
 
 template <typename T>
 inline typename list<T>::iterator list<T>::erase_after(iterator position)
 {
-    Link next_node = position.node->next;
+    Link nextNextNode = position.node->next->next;
+    nextNextNode->previous = position.node;
 
-    position.node->next = next_node->next;
+    Link nextNode = position.node->next;
+    position.node->next = nextNextNode;
 
-    //delete next_node; // erase the next node
-    Node::delete_(next_node); // with memory_pool
+    if(nextNode == tail) tail = position.node;
 
-    return position;
-}
+    delete nextNode;
 
-template <typename T>
-inline typename list<T>::iterator list<T>::splice_front(iterator moved)
-{   
-    // save the node of iterator 'moved'
-    T value = *moved;
-    Link next_node = moved.node->next;
-
-    // copy the next node to the node
-    *moved.node = *next_node;
-    //  <==> moved.node->data = next_node->data; moved.node->next = next_node->next;
-
-    next_node->data = value; // the next node sets the value that we want to move
-    next_node->next = head; // move the next node to the beginnning of list *this
-    head = next_node; // update of the head link
-
-    return moved;
+    return nextNextNode;
 }
 
 template <typename T>
 inline void list<T>::splice_front(list& moved)
 {
-    Link saved_head = moved.head;
-    Link position = saved_head;
-
-    // if list 'moved' is not empty
-    if( !position->end() )
-    {
-        while( !position->next->end() )
-        {
-            position = position->next;
-        }
-        // here, Link 'position' points to the last element of list 'moved', just before the sentinel node
-        moved.head = position->next; // 'moved' must be empty so it head is the sentinel node
-        position->next = this->head; // the last element of 'moved' points to the firt element of *this
-        this->head = saved_head; // head of list *this is the former head of list 'moved'
-    }
-
+    moved.tail->next = head;
+    head = moved.head;
     return;
 }
 
-template <typename T>
-void list<T>::remove(const T& value)
-{
-    // function 'erase_after' is faster than 'erase'
-    // specially for large object of type T
-    // because it needn't copying data field of the next node
-
-    iterator position = begin();
-
-    if( !position.end() )
-    {
-        while( !position.node->next->end() )
-        {
-            // checks and erases possibly from the second node to the last node
-            if( position.node->next->data == value )
-            {
-                position = erase_after(position);
-            }
-            else
-            {
-                ++position;
-            }
-        }
-
-        position = begin();
-        // checks and erases possibly the first node
-        if( *position == value )
-        {
-            erase(position);
-        }
-    }
-
-    return;
-}
-
-template <typename T>
-template <typename UnaryPredicate>
-void list<T>::remove_if(UnaryPredicate predicate)
-{
-    // function 'erase_after' is faster than 'erase'
-    // specially for large object of type T
-    // because, it needn't copying data field of the next node
-
-    iterator position = begin();
-
-    if( !position.end() )
-    {
-        while( !position.node->next->end() )
-        {
-            // checks and erases possibly the second node to the last node
-            if( predicate(position.node->next->data) )
-            {
-                position = erase_after(position);
-            }
-            else
-            {
-                ++position;
-            }
-        }
-
-        position = begin();
-        // checks and erases possibly the first node
-        if( predicate(*position) )
-        {
-            erase(position);
-        }
-    }
-
-    return;
-}
-
-template <typename T>
-template <typename BinaryPredicate>
-void list<T>::unique(BinaryPredicate compare)
-{
-    iterator position = begin();
-
-    if( !position.end() )
-    {
-        while( !position.node->next->end() )
-        {
-            if( compare(position.node->next->data,*position) )
-            {
-                position = erase_after(position);
-            }
-            else
-            {
-                ++position;
-            }
-        }
-    }
-
-    return;
-}
-
-template <typename T>
-void list<T>::unique()
-{
-    unique( equal_to<T>() );
-
-    return;
-}
-
-template <typename T>
-inline void list<T>::swap(list& list1, list& list2)
-{
-    if( &list1 != &list2 ) // no auto-swap
-    {
-        // swap heads
-        Link temp = list1.head;
-        list1.head = list2.head;
-        list2.head = temp;
-    }
-
-    return;
-}
-
-template <typename T>
-void list<T>::reverse()
-{
-    Link position = head;
-
-    if( !position->end() )
-    {
-        Link moved;
-
-        // while a node of list *this after 'position' exists
-        while( !position->next->end() )
-        {
-            moved = position->next; // save the node which is moved
-
-            position->next = moved->next; // skip node 'moved'
-
-            moved->next = head; // move node 'moved' to the beginnning of list *this
-            head = moved; // update of the head link
-        }
-    }
-
-    return;
-}
-
-// Merge sort algorithm :
-// - Bottom-up merge sort which is a non-recursive variant
-// - Temporal complexity is O(n log n) in average and in the worst case.
-// - Spatial complexity is O(1), it is an in-place algorithm.
-// - It produces a stable sort, i.e. it preserves the input order of equal elements.
-template <typename T>
-template <typename BinaryPredicate>
-void list<T>::sort(BinaryPredicate compare)
-{
-    // if list *this is empty,
-    // there is nothing to sort, we stop
-    if( this->empty() )
-    {
-        return;
-    }
-
-    // head and tail of the merged list
-    Link merged_head = this->head;
-    Link merged_tail;
-
-    Link p1, p2; // positions in sorted sublist 1 and 2
-    unsigned int size1, size2; // lengths of sorted sublist 1 and 2
-
-    Link node_to_append; // node to append to merged list
-
-    unsigned int nbr_merges; // count number of merges
-
-    // exit is possible at the end of the loop 'for' below with a condition on variable 'nbr_merges'
-    // in fact, this loop is passed 'log n' times, where 'n' is the length of list *this
-    for( unsigned int sublist_size = 1; 1; sublist_size *= 2 )
-    {
-        p1 = merged_head;
-        merged_head = NULL;
-        merged_tail = NULL;
-
-        nbr_merges = 0;
-
-        while( !p1->end() )
-        {
-            // There exists a merge to be done.
-            // Step 'sublist_size' places along from p1.
-            p2 = p1;
-            size1 = 0;
-            for( unsigned int iteration = 0; iteration < sublist_size; iteration++ )
-            {
-                size1++;
-                p2 = p2->next;
-                if( p2->end() )
-                {
-                    break;
-                }
-            }
-
-            // If p2 hasn't fallen off end, we have two lists to merge.
-            size2 = sublist_size;
-
-            // Now we have two lists; merge them.
-            while( size1 > 0 || ( size2 > 0 && !p2->end() ) )
-            {
-                // Decide whether next node of merge comes from p1 or p2.
-
-                if( size1 == 0 )
-                {
-                    // p1 is empty; node_to_append must come from p2.
-                    node_to_append = p2;
-                    p2 = p2->next;
-                    size2--;
-                }
-                else if( size2 == 0 || p2->end() )
-                {
-                    // p2 is empty; node_to_append must come from p1.
-                    node_to_append = p1;
-                    p1 = p1->next;
-                    size1--;
-                }
-                else if( compare(p1->data,p2->data) )
-                {
-                    // First node of p1 is lower; node_to_append must come from p1.
-                    node_to_append = p1;
-                    p1 = p1->next;
-                    size1--;
-                }
-                else
-                {
-                    // First node of p2 is lower; node_to_append must come from p2.
-                    node_to_append = p2;
-                    p2 = p2->next;
-                    size2--;
-                }
-
-                // Add the next node to the merged list.
-                if( merged_tail == NULL )
-                {
-                    merged_head = node_to_append;
-                }
-                else
-                {
-                    merged_tail->next = node_to_append;
-                }
-
-                merged_tail = node_to_append; // merged_tail update
-            }
-
-            // Now p1 has stepped 'sublist_size' places along, and p2 has too.
-            p1 = p2;
-            nbr_merges++;
-        }
-
-        // p1 is at the position of the sentinel node and is appended to the merged list
-        merged_tail->next = p1;
-
-        // If we have done only one merge, we're finished.
-        // Allow for nbr_merges == 0, the empty merged list case.
-        if( nbr_merges <= 1 )
-        {
-            // list *this is the final merged list
-            this->head = merged_head;
-            return;
-        }
-    }
-}
-
-// Sorts the elements into ascending order by default.
-template <typename T>
-inline void list<T>::sort()
-{
-    sort( less<T>() );
-    return;
-}
 
 //////////////////////////// list information /////////////////////////////
 
@@ -785,65 +443,97 @@ T* list<T>::get_array(int array_length) const
 
     return array;
 }
-/*
+
 template <typename T>
 inline typename list<T>::iterator list<T>::set_dump_after(iterator position)
 {
+    Link dump_node = new Node( T(), NULL,position.node );
 
-    Link dump_node = Node::new_( T(), NULL );
+    //Save the iterator next position
+    Link current_pos = position.node;
+    ++position;
 
-    //Saving nodes
-    Link end_node = position.node;
-    Link next_node = position.node->next;
+    current_pos->next = dump_node;
 
-    end_node->next = dump_node;
-
-    return next_node;
-}*/
+    return position;
+}
 
 template <typename T>
-inline std::vector<std::list<T> > list<T>::splitList() const
+inline void list<T>::splitList(std::vector< list<T> *>& splited_List, int numThreads)
 {
-    int numThreads=1;
-    #pragma omp parallel
-    {
-       numThreads = omp_get_num_threads();
-    }
     //rest computation to balance the deal
     int nElements = size();
     int r=0;
     if( (nElements % numThreads)==1 ) r=1;
     int elemPerThread = (nElements / numThreads) + r;
-
     int cont=1, listNumber=0;
 
-    //Initialize subLists
-    std::vector<std::list<T> > splited_List;
-    for(int i=0; i < numThreads; i++)
-    {
-        //Initiliaze sublist (creates implicit a dump object)
-        std::list<T>* newList = new std::list<T>;
-        splited_List.push_back(*newList);
-    }
-
-    //Initilize iterators
-    const_iterator position = begin();
+    //Initialize iterators
+    iterator position = begin();
 
     //Puts the first element (to change cont wisely)
-    splited_List[listNumber].push_front(*position);
+    splited_List[listNumber]->head = head;
     ++position;
     cont++;
+
     while(!position.end())
     {
-        splited_List[listNumber].push_front(*position);
-        ++position;
+        //Change subList
+        if((cont % elemPerThread)== 0){
 
-        //Change subList and continue
-        if((cont % elemPerThread)== 0) listNumber++;
+            //Sets the tail
+            splited_List[listNumber]->tail = position.node;
 
-        cont++;
+            //Inserts a dump object
+            position = set_dump_after(position);
+            cont++;
+
+            if(listNumber < numThreads -1)
+            {
+                //Start constructing the next sublist
+                listNumber++;
+                splited_List[listNumber]->head = position.node;
+                cont++;
+                ++position;
+            }
+        }
+        else
+        {
+            ++position;
+            cont++;
+        }
     }
-    return splited_List;
+}
+
+template <typename T>
+T list<T>::getFirst() const
+{
+   return **head;
+}
+
+template <typename T>
+T list<T>::getLast() const
+{
+   return **tail;
+}
+
+
+template <typename T>
+void list<T>::collectList(std::vector<list<int>* >* splitedList)
+{
+    head = splitedList->at(0)->head;
+
+    for(int i=0; i < splitedList->size(); i++)
+    {
+        if(i < splitedList->size()-1){           
+            splitedList->at(i)->tail->next = splitedList->at(i+1)->head;
+            splitedList->at(i+1)->head->previous = splitedList->at(i)->tail;
+        }
+        else
+        {
+            tail = splitedList->at(i)->tail;
+        }
+    }
 }
 
 }

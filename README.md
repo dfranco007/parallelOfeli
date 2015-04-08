@@ -14,6 +14,7 @@ Versiones:
 
 
 ************ 2.0 ************
+-Mejora: función size() orden constante.
 -
 
 

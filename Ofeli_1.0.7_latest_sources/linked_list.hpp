@@ -41,8 +41,6 @@
 #define LINKED_LIST_HPP
 
 #include <vector>
-#include <list>
-#include <omp.h>
 #include <cstdlib> // NULL macro
 #include <iostream> // for operator<< overloading
 
@@ -152,7 +150,6 @@ public :
         iterator(Link node1) : node(node1)
         {
         }
-
         //! \a const_iterator encapsulates a pointer to a node.
         Link node;
     };
@@ -163,56 +160,31 @@ private :
     struct Node
     {
         //! Constructor.
-        Node(const T& data1, Link next1) : data(data1), next(next1)
+        Node(const T& data1, Link next1, Link previous1) : data(data1), next(next1), previous(previous1)
+        {
+        }
+        //! Constructor.
+        Node(Node &node1) : data(node1.data), next(node1.next), previous(node1.previous)
         {
         }
 
+        //! Gets the node data of the Node
+        T operator*() const
+        {
+            return data;
+        }
         //! Checks if the node is at the end of the list, i.e. if the node is the sentinel node.
         bool end() const
         {
-            return ( next == NULL ) ? true : false;
+            return ( next == NULL) ? true : false;
         }
 
         //! Element storage.
         T data;
         //! Pointer to the next node.
         Link next;
-
-        //! Collects a node from the linked list memory pool and initializes it. It mimes operator \c new.
-        static Link new_(const T& data1, Link next1)
-        {
-            // take a node from the linked list memory pool
-            Link node = mem_head;
-            mem_head = mem_head->next;
-
-            // initialization
-            node->data = data1;
-            node->next = next1;
-
-            return node;
-        }
-
-        //! Collects a node from the linked list memory pool and initializes it. It mimes operator \c new.
-        static Link new_(const Node& copied)
-        {
-            // take a node from the linked list memory pool
-            Link node = mem_head;
-            mem_head = mem_head->next;
-
-            // initialization
-            *node = copied;
-
-            return node;
-        }
-
-        //! Moves a node to the linked list memory pool. It mimes operator \c delete.
-        static void delete_(Link node)
-        {
-            // put a node to the linked list memory pool
-            node->next = mem_head;
-            mem_head = node;
-            return;
-        }
+        //! Pointer to the previous node.
+        Link previous;
     };
 
         ///////////////////////////////////////////////////////////////////////
@@ -227,16 +199,10 @@ public :
     ///////////////////// list initialization/destruction /////////////////////
 
     //! Constructor.
-    list(int mem_pool_size1);
-
-    //! Constructor to create a list with \a n value.
-    list(int mem_pool_size1, int n, const T& value);
-
-    //! Constructor to create a list from an array.
-    list(int mem_pool_size1, const T array[], int array_length);
+    list();
 
     //! Copy constructor.
-    list(int mem_pool_size1, const list& copied);
+    list(const list& copied);
 
     //! Assignment operator overloading.
     list& operator=(const list& rhs);
@@ -252,6 +218,11 @@ public :
 
     //! Returns the head link.
     iterator begin();
+
+    //! Returns the head link.
+    iterator end();
+
+    const_iterator end() const;
 
     //! Returns the head link.
     const_iterator begin() const; // const overloading
@@ -318,16 +289,6 @@ public :
     //! Remove consecutive duplicate values.
     void unique();
 
-    //! Reverses the order of the elements in the \a list container.
-    void reverse();
-
-    //! Sorts the elements with a specified order. The order of equal elements is guaranteed to be preserved (stability). The sorting is performed by merge sort algorithm in \a O(n log n) in worst-case, where \a n is the size of the container. It does not require \a O(n) extra space.
-    template <typename BinaryPredicate>
-    void sort(BinaryPredicate compare);
-
-    //! Sorts the elements into ascending order. Calls the function void sort(BinaryPredicate compare) with an object of the class \a less because parameter by default for a template function is not allowed.
-    void sort();
-
     //! Exchanges the content of container \a list1 by the content of \a list2, which is another list object containing elements of the same type. Sizes may differ. Performs it in a constant time without copying.
     //! Use this function if you don't have accesss to C++11 (formerly known as C++0x) "void std::swap(T& a, T& b)" version with semantic move.
     static void swap(list& list1, list& list2);
@@ -361,27 +322,30 @@ public :
 
     ///////////////////////////////////////////////////
 
-    /*
+
     //! Sets a dump element after position
     iterator set_dump_after(iterator position);
-    */
+
     //! Splits de list in a number of parts equals number of threads
     //! without modifying the original list
-    std::vector<std::list<T> > splitList() const;
+    void splitList(std::vector< list<T> *>& splited_List, int numThreads);
+
+    //! Collect all subList of splitedList into the list which calls the function
+    void collectList(std::vector<list<int>* >* splitedList);
+
+    //! Gets the first element
+    T getFirst() const;
+
+    //! Gets the last element
+    T getLast() const;
 
 private :
 
     //! Head of the list.
     Link head;
 
-    //! Head of the memory pool list which is shared for all lists.
-    static Link mem_head;
-
-    //! Number of nodes of the memory pool list created by list *this.
-    const int mem_pool_size;
-
-    //! Creates a memory pool with a shared linked list.
-    void alloc_mem_pool();
+    //!Tail of the list
+    Link tail;
 };
 
 // function object definitions for the template function parameter BinaryPredicate

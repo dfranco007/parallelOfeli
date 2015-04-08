@@ -71,8 +71,7 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
     img_size(img_width1*img_height1), kernel_radius( (kernel_length1-1)/2 ), phi( new char[img_width1*img_height1] ),
     gaussian_kernel( make_gaussian_kernel(kernel_length1,sigma1) ), iteration_max( 5*std::max(img_width1,img_height1) ),
     iteration(0), Na(0), Ns(0), previous_lists_length(99999999), lists_length(0), oscillations_in_a_row(0),
-    Lout( std::max(10000,std::min(100000,img_width1*img_height1/5)) ), Lin( std::max(10000,std::min(100000,img_width1*img_height1/5)) ),
-    ListSize(std::max(10000,std::min(100000,img_width1*img_height1/5)) )
+    Lout( ), Lin( )
 {
     if( img_data1 == NULL )
     {
@@ -83,6 +82,17 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
 
     initialize_phi_with_a_shape(hasEllipse1, init_width1, init_height1, center_x1, center_y1);
     initialize_lists();
+
+    #pragma omp parallel
+    {
+       numThreads = omp_get_num_threads();
+    }
+    for(int i=0; i < numThreads; i++)
+    {
+        Splited_Lout.push_back(new list<int>());
+        Splited_Lin.push_back(new list<int>());
+    }
+
 }
 
 ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int img_height1,
@@ -93,8 +103,7 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
     img_size(img_width1*img_height1), kernel_radius( (kernel_length1-1)/2 ), phi( new char[img_width1*img_height1] ),
     gaussian_kernel( make_gaussian_kernel(kernel_length1,sigma1) ), iteration_max( 5*std::max(img_width1,img_height1) ),
     iteration(0), Na(0), Ns(0), previous_lists_length(99999999), lists_length(0), oscillations_in_a_row(0),
-    Lout( std::max(10000,std::min(100000,img_width1*img_height1/5)) ), Lin( std::max(10000,std::min(100000,img_width1*img_height1/5)) ),
-    ListSize(std::max(10000,std::min(100000,img_width1*img_height1/5)) )
+    Lout(  ), Lin( )
 {
     if( img_data1 == NULL )
     {
@@ -112,6 +121,16 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
 
     std::memcpy(phi,phi_init1,img_size); // initialize phi with a buffer copy
     initialize_lists();
+
+    #pragma omp parallel
+    {
+       numThreads = omp_get_num_threads();
+    }
+    for(int i=0; i < numThreads; i++)
+    {
+        Splited_Lout.push_back(new list<int>());
+        Splited_Lin.push_back(new list<int>());
+    }
 }
 
 ActiveContour::ActiveContour(const ActiveContour& ac) :
@@ -125,8 +144,7 @@ ActiveContour::ActiveContour(const ActiveContour& ac) :
     isStopped(ac.isStopped), hasLastCycle2(ac.hasLastCycle2), hasListsChanges(ac.hasListsChanges),
     hasOscillation(ac.hasOscillation),
     hasOutwardEvolution(ac.hasOutwardEvolution), hasInwardEvolution(ac.hasInwardEvolution),
-    Lout(ac.Lout), Lin(ac.Lin),
-    ListSize(ac.ListSize)// linked list ofeli::list has an implemented copy constructor
+    Lout(ac.Lout), Lin(ac.Lin), Splited_Lout(ac.Splited_Lout), Splited_Lin(ac.Splited_Lin), numThreads(ac.numThreads)
 {
     if( ac.img_data == NULL )
     {
@@ -136,6 +154,7 @@ ActiveContour::ActiveContour(const ActiveContour& ac) :
     }
 
     std::memcpy(phi,ac.phi,img_size); // buffer copy
+
 }
 
 void ActiveContour::initialize_phi_with_a_shape(bool hasEllipse, double init_width, double init_height,
@@ -308,35 +327,31 @@ void ActiveContour::do_one_iteration_in_cycle1()
     calculate_means(); // virtual function for region-based models
 
     hasOutwardEvolution = false;
-/*
-    //Splits lists
-    std::cout << "Lista Lout entera: , size: " << Lout.size()<< std::endl;
 
-    for(list<int>::iterator ite = Lout.begin(); !ite.end(); ++ite)
-        std::cout << *ite << ", ";
-    std::cout << std::endl;
-*/
-    Splited_Lout = Lout.splitList();
-/*
-    for(int i=0; i < 2; i++)
+    std::cout << "PRIMERO-Lout-entera-size(): " <<  Lout.size() << std::endl;
+    for(list<int>::iterator a = Lout.begin(); !a.end(); ++a )
     {
-        std::cout << "Lista " << i << ", size: " << Splited_Lout[i].size() <<  std::endl;
-        for(std::list<int>::iterator ite = Splited_Lout[i].begin(); ite != Splited_Lout[i].end(); ite++)
+        std::cout << ", " << *a;
+    }std::cout << std::endl;
+
+    Lout.splitList(Splited_Lout,numThreads);
+
+    for(int i=0; i < numThreads; i++)
+    {
+        std::cout << "PRIMERO-Lout-Trozo: " << i  << ", size: " <<  Splited_Lout[i]->size() << ", tail: " << Splited_Lout[i]->getLast() << std::endl;
+        for(list<int>::iterator a = Splited_Lout[i]->begin(); !a.end(); ++a )
         {
-            std::cout << *ite << ", ";
-        }
-        std::cout << std::endl;
+            std::cout << ", " << *a;
+        }std::cout << std::endl;
     }
-*/
-    Splited_Lin = Lin.splitList();
+    Lin.splitList(Splited_Lin,numThreads);
 
-    int tid;
-
+    int tid=0;
     #pragma omp parallel private(tid)
-    {
+    { 
         tid = omp_get_thread_num();
 
-        for( std::list<int>::iterator Lout_point = Splited_Lout[tid].begin(); Lout_point!= Splited_Lout[tid].end();   )
+        for( list<int>::iterator Lout_point = Splited_Lout[tid]->begin(); !Lout_point.end(); )
         {
             if( compute_external_speed_Fd(*Lout_point) > 0 )
             {
@@ -344,7 +359,6 @@ void ActiveContour::do_one_iteration_in_cycle1()
 
                 // updates of the variables to calculate the means Cout and Cin
                 updates_for_means_in1(); // virtual function for region-based models
-
                 Lout_point = switch_in(Lout_point,tid); // outward local movement
                 // switch_in function returns a new Lout_point
                 // which is the next point of the former Lout_point
@@ -354,11 +368,18 @@ void ActiveContour::do_one_iteration_in_cycle1()
                 ++Lout_point;
             }
         }
-        clean_Lin(tid); // eliminate Lin redundant points
 
+            std::cout << "CLEAN-Lin-Trozo: " << tid  << ", size: " <<  Splited_Lin[tid]->size() << ", tail: " << Splited_Lin[tid]->getLast() << std::endl;
+            for(list<int>::iterator a = Splited_Lin[tid]->begin(); !a.end(); ++a )
+            {
+                std::cout << ", " << *a;
+            }std::cout << std::endl;
+
+        clean_Lin(tid); // eliminate Lin redundant points
+        std::cout<< "TEMINA: " << tid << std::endl;
         hasInwardEvolution = false;
 
-        for( std::list<int>::iterator Lin_point = Splited_Lin[tid].begin(); Lin_point != Splited_Lin[tid].end();   )
+        for( list<int>::iterator Lin_point = Splited_Lin[tid]->begin(); !Lin_point.end(); )
         {
             if( compute_external_speed_Fd(*Lin_point) < 0 )
             {
@@ -377,11 +398,23 @@ void ActiveContour::do_one_iteration_in_cycle1()
             }
         }
 
-        clean_Lout(tid); // eliminate Lout redundant points
-    }
 
-    Lout = collectList(Splited_Lout);
-    Lin = collectList(Splited_Lin);
+            std::cout << "CLEAN-Lout-Trozo: " << tid  << ", size: " <<  Splited_Lout[tid]->size() << ", tail: " << Splited_Lout[tid]->getLast() << std::endl;
+            for(list<int>::iterator a = Splited_Lout[tid]->begin(); !a.end(); ++a )
+            {
+                std::cout << ", " << *a;
+            }std::cout << std::endl;
+
+        clean_Lout(tid); // eliminate Lout redundant points
+    } 
+    Lout.collectList(&Splited_Lout);
+    Lin.collectList(&Splited_Lin);
+
+    std::cout << "ULTIMO-Lout-entera-size(): " <<  Lout.size() << std::endl;
+    for(list<int>::iterator a = Lout.begin(); !a.end(); ++a )
+    {
+        std::cout << ", " << *a;
+    }std::cout << std::endl;
 
     iteration++;
 
@@ -390,14 +423,13 @@ void ActiveContour::do_one_iteration_in_cycle1()
 
 void ActiveContour::do_one_iteration_in_cycle2()
 {
+    std::cout << "HOLAAAAAAAAAAAAAAA" << std::endl;
     int offset;
 
     lists_length = 0;
 
-
-    //Splits lists
-    Splited_Lout = Lout.splitList();
-    Splited_Lin = Lin.splitList();
+    Lout.splitList(Splited_Lout,numThreads);
+    Lin.splitList(Splited_Lin,numThreads);
 
     int tid;
 
@@ -406,7 +438,7 @@ void ActiveContour::do_one_iteration_in_cycle2()
         tid = omp_get_thread_num();
 
         // scan through Lout with a conditional increment
-        for( std::list<int>::iterator Lout_point = Splited_Lout[tid].begin(); Lout_point!= Splited_Lout[tid].end();   )
+        for( list<int>::iterator Lout_point = Splited_Lout[tid]->begin(); !Lout_point.end(); )
         {
             offset = *Lout_point;
 
@@ -431,7 +463,7 @@ void ActiveContour::do_one_iteration_in_cycle2()
 
 
         // scan through Lin with a conditional increment
-        for( std::list<int>::iterator Lin_point = Splited_Lin[tid].begin(); Lin_point!= Splited_Lin[tid].end();   )
+        for( list<int>::iterator Lin_point = Splited_Lin[tid]->begin(); !Lin_point.end(); )
         {
             offset = *Lin_point;
 
@@ -456,8 +488,8 @@ void ActiveContour::do_one_iteration_in_cycle2()
 
     }
 
-    Lout = collectList(Splited_Lout);
-    Lin = collectList(Splited_Lin);
+    Lout.collectList(&Splited_Lout);
+    Lin.collectList(&Splited_Lin);
 
     iteration++;
 
@@ -582,7 +614,7 @@ void ActiveContour::add_Rout_neighbor_to_Lout(int neighbor_offset,int tid)
                 phi[neighbor_offset] = 1; // outside boundary value
 
                 // neighbor ∈ Rout ==> ∈ neighbor Lout
-                Splited_Lout[tid].push_front(neighbor_offset);
+                Splited_Lout[tid]->push_front(neighbor_offset);
                 // due to the linked list implementation
                 // with a sentinel/dummy node after the last node and not before the first node ;
                 // 'push_front' never invalidates iterator 'Lout_point', even if 'Lout_point' points to the first node.
@@ -606,7 +638,7 @@ void ActiveContour::add_Rin_neighbor_to_Lin(int neighbor_offset,int tid)
                phi[neighbor_offset] = -1; // inside boundary value
 
                // neighbor ∈ Rin ==> ∈ neighbor Lin
-               Splited_Lin[tid].push_front(neighbor_offset);
+               Splited_Lin[tid]->push_front(neighbor_offset);
                // due to the linked list implementation
                // with a sentinel/dummy node after the last node and not before the first node ;
                // 'push_front' never invalidates iterator 'Lin_point', even if 'Lin_point' points to the first node.
@@ -617,7 +649,7 @@ void ActiveContour::add_Rin_neighbor_to_Lin(int neighbor_offset,int tid)
     return;
 }
 
-std::list<int>::iterator ActiveContour::switch_in(std::list<int>::iterator Lout_point, int tid)
+list<int>::iterator ActiveContour::switch_in(list<int>::iterator Lout_point, int tid)
 {
     int offset, x, y;
     offset = *Lout_point;
@@ -689,20 +721,16 @@ std::list<int>::iterator ActiveContour::switch_in(std::list<int>::iterator Lout_
 
     phi[offset] = -1; // 1 ==> -1
 
-    //Save the current position
-    std::list<int>::iterator iterAux = Lout_point;
-    iterAux++;
+    int value = *Lout_point;
 
-    //Moves element pointed by Lout_point to Splited_Lin[tid] list
-    Splited_Lin[tid].splice(Splited_Lin[tid].begin(),Splited_Lout[tid],Lout_point);
+    Lout_point = Splited_Lout[tid]->erase(Lout_point);
 
-    //Modify iterator
-    Lout_point = iterAux;
+    Splited_Lin[tid]->push_front(value);
 
-    return  Lout_point;
+    return Lout_point;
 }
 
-std::list<int>::iterator ActiveContour::switch_out(std::list<int>::iterator Lin_point,int tid)
+list<int>::iterator ActiveContour::switch_out(list<int>::iterator Lin_point,int tid)
 {
     int offset, x, y;
     offset = *Lin_point;
@@ -774,17 +802,13 @@ std::list<int>::iterator ActiveContour::switch_out(std::list<int>::iterator Lin_
 
     phi[offset] = 1; // -1 ==> 1
 
-    //Save the current position
-    std::list<int>::iterator iterAux = Lin_point;
-    iterAux++;
+    int value = *Lin_point;
 
-    //Moves element pointed by Lin_point to Splited_Lout[tid] list
-    Splited_Lout[tid].splice(Splited_Lout[tid].begin(),Splited_Lin[tid],Lin_point);
+    Lin_point = Splited_Lin[tid]->erase(Lin_point);
 
-    //Modify iterator
-    Lin_point = iterAux;
+    Splited_Lout[tid]->push_front(value);
 
-    return  Lin_point;
+    return Lin_point;
 }
 
 int ActiveContour::compute_internal_speed_Fint(int offset)
@@ -1021,7 +1045,7 @@ void ActiveContour::clean_Lin(int tid)
     int offset;
 
     // scan through Lin with a conditional increment
-    for( std::list<int>::iterator Lin_point =  Splited_Lin[tid].begin(); Lin_point !=Splited_Lin[tid].end();   )
+    for( list<int>::iterator Lin_point =  Splited_Lin[tid]->begin(); !Lin_point.end(); )
     {
         offset = *Lin_point;
 
@@ -1029,16 +1053,16 @@ void ActiveContour::clean_Lin(int tid)
         if( isRedundantLinPoint(offset) )
         {
             phi[offset] = -3; // -1 ==> -3
-            Lin_point =  Splited_Lin[tid].erase(Lin_point); // Lin_point ∈ Lin ==> Lin_point ∈ Rin
+            Lin_point =  Splited_Lin[tid]->erase(Lin_point); // Lin_point ∈ Lin ==> Lin_point ∈ Rin
             // erase function returns a new Lin_point
             // which is the next point of the former Lin_point
+
         }
         else
         {
             ++Lin_point;
         }
     }
-
     return;
 }
 
@@ -1047,7 +1071,7 @@ void ActiveContour::clean_Lout(int tid)
     int offset;
 
     // scan through Lout with a conditional increment
-    for( std::list<int>::iterator Lout_point =  Splited_Lout[tid].begin(); Lout_point !=Splited_Lout[tid].end();   )
+    for( list<int>::iterator Lout_point =  Splited_Lout[tid]->begin(); !Lout_point.end(); )
     {
         offset = *Lout_point;
 
@@ -1055,7 +1079,7 @@ void ActiveContour::clean_Lout(int tid)
         if( isRedundantLoutPoint(offset) )
         {
             phi[offset] = 3; // 1 ==> 3
-            Lout_point = Splited_Lout[tid].erase(Lout_point); // Lout_point ∈ Lout ==> Lout_point ∈ Rout
+            Lout_point = Splited_Lout[tid]->erase(Lout_point); // Lout_point ∈ Lout ==> Lout_point ∈ Rout
             // erase function returns a new Lout_point
             // which is the next point of the former Lout_point
         }
@@ -1064,7 +1088,6 @@ void ActiveContour::clean_Lout(int tid)
             ++Lout_point;
         }
     }
-
     return;
 }
 
@@ -1271,22 +1294,5 @@ bool ActiveContour::get_isStopped() const
 {
     return isStopped;
 }
-
-
-list<int> ActiveContour::collectList(std::vector<std::list<int> > v)
-{
-    ofeli::list<int> newList( v[0].size() * 10);
-
-    for(int i=0; i < v.size(); i++)
-    {
-        for(std::list<int>::iterator ite = v[i].begin(); ite != v[i].end();ite++)
-        {
-            newList.push_front(*ite);
-        }
-    }
-
-    return newList;
-}
-
 
 }
