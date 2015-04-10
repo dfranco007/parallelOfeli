@@ -43,7 +43,7 @@ namespace ofeli
 ///////////////////// list initialization/destruction /////////////////////
 
 template <typename T>
-list<T>::list() : head(new Node( T(), NULL ,NULL)), tail(head)
+list<T>::list() : head(new Node( T(), NULL ,NULL)), tail(head), listSize(0)
 {
 }
 
@@ -130,6 +130,7 @@ list<T>::~list()
         pop_front();
     }
     head = NULL;
+    tail = NULL;
 }
 
 template <typename T>
@@ -150,28 +151,24 @@ void list<T>::clear()
 template <typename T>
 typename list<T>::iterator list<T>::begin()
 {
-    return head; // implicit type conversion
-    // iterator encapsulates a Link which is a pointer to a Node
+    return head;
 }
 template <typename T>
 typename list<T>::iterator list<T>::end()
 {
-    return tail; // implicit type conversion
-    // iterator encapsulates a Link which is a pointer to a Node
+    return tail;
 }
 
 template <typename T>
-typename list<T>::const_iterator list<T>::begin() const // const overloading
+typename list<T>::const_iterator list<T>::begin() const
 {
-    return head; // implicit type conversion
-    // iterator encapsulates a Link which is a pointer to a Node
+    return head;
 }
 
 template <typename T>
-typename list<T>::const_iterator list<T>::end() const // const overloading
+typename list<T>::const_iterator list<T>::end() const
 {
-    return tail; // implicit type conversion
-    // iterator encapsulates a Link which is a pointer to a Node
+    return tail;
 }
 
 ////////////////////////////// list changes ///////////////////////////////
@@ -219,12 +216,18 @@ inline void list<T>::assign(int n, const T& value)
 template <typename T>
 inline void list<T>::pop_front()
 {
+    bool last = false;
+    if(head == tail)last=true;
+
     Link new_head = head->next;
 
     delete head;
 
     head = new_head;
-    if(head->data == T()) tail = head;
+    if(last) tail = head;
+
+    listSize--;
+
     return;
 }
 
@@ -241,6 +244,8 @@ inline void list<T>::push_front(const T& value)
 
     if(**aux == T()) tail = head;
 
+    listSize++;
+
     return;
 }
 
@@ -249,6 +254,7 @@ inline void list<T>::push_front(const list& copied)
 {
     copied.tail->next = head;
     head =  copied.head;
+    listSize += copied.size();
 
     return;
 }
@@ -291,6 +297,8 @@ inline typename list<T>::iterator list<T>::insert_before(iterator position, cons
 
     position.node->previous = newNode;
 
+    listSize++;
+
     return ++position;
 }
 
@@ -305,23 +313,34 @@ inline typename list<T>::iterator list<T>::insert_after(iterator position, const
 
     if(tail == position.node) tail = newNode;
 
+    listSize++;
+
     return newNode->next;
 }
 
 template <typename T>
-inline typename list<T>::iterator list<T>::erase(iterator position)
-{
-    std::cout << "POs: " << *position << std::endl;
-    Link previousNode = position.node->previous;
-    previousNode->next = position.node->next;
-
+inline typename list<T>::iterator list<T>::erase(iterator position, int tid)
+{    
     Link nextNode = position.node->next;
+    Link previousNode = NULL;
+
+    if(position.node->previous != NULL )
+    {
+        previousNode = position.node->previous;
+        previousNode->next = position.node->next;
+    }
+    else
+    {
+        head = nextNode;
+    }
     nextNode->previous = previousNode;
 
     Link deleteNode = position.node;
     if(deleteNode == tail) tail = previousNode;
 
     delete &position.node;
+
+    listSize--;
 
     return nextNode;
 }
@@ -339,15 +358,103 @@ inline typename list<T>::iterator list<T>::erase_after(iterator position)
 
     delete nextNode;
 
+    listSize--;
+
     return nextNextNode;
 }
 
 template <typename T>
-inline void list<T>::splice_front(list& moved)
+inline typename list<T>::iterator list<T>::set_dump_after(iterator position)
 {
-    moved.tail->next = head;
-    head = moved.head;
-    return;
+    Link dump_node = new Node( T(), NULL,position.node );
+
+    //Save the iterator next position
+    Link current_pos = position.node;
+    ++position;
+
+    current_pos->next = dump_node;
+
+    return position;
+}
+
+template <typename T>
+void list<T>::collectList(std::vector<list<int>* >* splitedList)
+{
+    head = splitedList->at(0)->head;
+    listSize=0;
+
+    for(int i=0; i < splitedList->size(); i++)
+    {
+        listSize+=  splitedList->at(i)->size();
+        if(i < splitedList->size()-1){
+            splitedList->at(i)->tail->next = splitedList->at(i+1)->head;
+            splitedList->at(i+1)->head->previous = splitedList->at(i)->tail;
+        }
+        else
+        {
+            tail = splitedList->at(i)->tail;
+        }
+    }
+}
+
+
+template <typename T>
+inline void list<T>::splitList(std::vector< list<T> *>& splited_List, int numThreads)
+{
+    //rest computation to balance the deal
+    int nElements = size();
+    int r=0;
+    if( (nElements % numThreads)==1 ) r=1;
+    int elemPerThread = (nElements / numThreads) + r;
+    int cont=1, listNumber=0;
+
+    //Initialize iterators
+    iterator position = begin();
+
+    //Puts the first element (to change cont wisely)
+    splited_List[listNumber]->head = head;
+    ++position;
+    cont++;
+
+    while(!position.end())
+    {
+        //Change subList
+        if((cont % elemPerThread)== 0){
+
+            //Set tail and size
+            splited_List[listNumber]->tail = position.node;
+            splited_List[listNumber]->listSize = cont;
+            cont=0;
+            //Inserts a dump object
+            position = set_dump_after(position);
+            cont++;
+
+            if(listNumber < numThreads -1)
+            {
+                //Start constructing the next sublist
+                listNumber++;
+                splited_List[listNumber]->head = position.node;
+                splited_List[listNumber]->head->previous = NULL;
+                cont++;
+                ++position;
+            }
+        }
+        else
+        {
+            //Save the last node analized
+            Link last = position.node;
+
+            ++position;
+
+            //Fixing odd numbers problem
+            if(position.end())
+            {
+                splited_List[listNumber]->tail = last;
+                splited_List[listNumber]->listSize = cont;
+            }
+            cont++;
+        }
+    }
 }
 
 
@@ -369,14 +476,7 @@ inline bool list<T>::empty() const
 template <typename T>
 int list<T>::size() const
 {
-    int size = 0;
-
-    for( const_iterator position = begin(); !position.end(); ++position )
-    {
-        size++;
-    }
-
-    return size;
+    return listSize;
 }
 
 template <typename U>
@@ -445,67 +545,6 @@ T* list<T>::get_array(int array_length) const
 }
 
 template <typename T>
-inline typename list<T>::iterator list<T>::set_dump_after(iterator position)
-{
-    Link dump_node = new Node( T(), NULL,position.node );
-
-    //Save the iterator next position
-    Link current_pos = position.node;
-    ++position;
-
-    current_pos->next = dump_node;
-
-    return position;
-}
-
-template <typename T>
-inline void list<T>::splitList(std::vector< list<T> *>& splited_List, int numThreads)
-{
-    //rest computation to balance the deal
-    int nElements = size();
-    int r=0;
-    if( (nElements % numThreads)==1 ) r=1;
-    int elemPerThread = (nElements / numThreads) + r;
-    int cont=1, listNumber=0;
-
-    //Initialize iterators
-    iterator position = begin();
-
-    //Puts the first element (to change cont wisely)
-    splited_List[listNumber]->head = head;
-    ++position;
-    cont++;
-
-    while(!position.end())
-    {
-        //Change subList
-        if((cont % elemPerThread)== 0){
-
-            //Sets the tail
-            splited_List[listNumber]->tail = position.node;
-
-            //Inserts a dump object
-            position = set_dump_after(position);
-            cont++;
-
-            if(listNumber < numThreads -1)
-            {
-                //Start constructing the next sublist
-                listNumber++;
-                splited_List[listNumber]->head = position.node;
-                cont++;
-                ++position;
-            }
-        }
-        else
-        {
-            ++position;
-            cont++;
-        }
-    }
-}
-
-template <typename T>
 T list<T>::getFirst() const
 {
    return **head;
@@ -515,25 +554,6 @@ template <typename T>
 T list<T>::getLast() const
 {
    return **tail;
-}
-
-
-template <typename T>
-void list<T>::collectList(std::vector<list<int>* >* splitedList)
-{
-    head = splitedList->at(0)->head;
-
-    for(int i=0; i < splitedList->size(); i++)
-    {
-        if(i < splitedList->size()-1){           
-            splitedList->at(i)->tail->next = splitedList->at(i+1)->head;
-            splitedList->at(i+1)->head->previous = splitedList->at(i)->tail;
-        }
-        else
-        {
-            tail = splitedList->at(i)->tail;
-        }
-    }
 }
 
 }

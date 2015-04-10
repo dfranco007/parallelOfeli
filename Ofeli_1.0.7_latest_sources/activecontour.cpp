@@ -328,22 +328,7 @@ void ActiveContour::do_one_iteration_in_cycle1()
 
     hasOutwardEvolution = false;
 
-    std::cout << "PRIMERO-Lout-entera-size(): " <<  Lout.size() << std::endl;
-    for(list<int>::iterator a = Lout.begin(); !a.end(); ++a )
-    {
-        std::cout << ", " << *a;
-    }std::cout << std::endl;
-
     Lout.splitList(Splited_Lout,numThreads);
-
-    for(int i=0; i < numThreads; i++)
-    {
-        std::cout << "PRIMERO-Lout-Trozo: " << i  << ", size: " <<  Splited_Lout[i]->size() << ", tail: " << Splited_Lout[i]->getLast() << std::endl;
-        for(list<int>::iterator a = Splited_Lout[i]->begin(); !a.end(); ++a )
-        {
-            std::cout << ", " << *a;
-        }std::cout << std::endl;
-    }
     Lin.splitList(Splited_Lin,numThreads);
 
     int tid=0;
@@ -369,14 +354,8 @@ void ActiveContour::do_one_iteration_in_cycle1()
             }
         }
 
-            std::cout << "CLEAN-Lin-Trozo: " << tid  << ", size: " <<  Splited_Lin[tid]->size() << ", tail: " << Splited_Lin[tid]->getLast() << std::endl;
-            for(list<int>::iterator a = Splited_Lin[tid]->begin(); !a.end(); ++a )
-            {
-                std::cout << ", " << *a;
-            }std::cout << std::endl;
-
         clean_Lin(tid); // eliminate Lin redundant points
-        std::cout<< "TEMINA: " << tid << std::endl;
+
         hasInwardEvolution = false;
 
         for( list<int>::iterator Lin_point = Splited_Lin[tid]->begin(); !Lin_point.end(); )
@@ -398,23 +377,12 @@ void ActiveContour::do_one_iteration_in_cycle1()
             }
         }
 
-
-            std::cout << "CLEAN-Lout-Trozo: " << tid  << ", size: " <<  Splited_Lout[tid]->size() << ", tail: " << Splited_Lout[tid]->getLast() << std::endl;
-            for(list<int>::iterator a = Splited_Lout[tid]->begin(); !a.end(); ++a )
-            {
-                std::cout << ", " << *a;
-            }std::cout << std::endl;
-
         clean_Lout(tid); // eliminate Lout redundant points
+
     } 
+
     Lout.collectList(&Splited_Lout);
     Lin.collectList(&Splited_Lin);
-
-    std::cout << "ULTIMO-Lout-entera-size(): " <<  Lout.size() << std::endl;
-    for(list<int>::iterator a = Lout.begin(); !a.end(); ++a )
-    {
-        std::cout << ", " << *a;
-    }std::cout << std::endl;
 
     iteration++;
 
@@ -423,9 +391,7 @@ void ActiveContour::do_one_iteration_in_cycle1()
 
 void ActiveContour::do_one_iteration_in_cycle2()
 {
-    std::cout << "HOLAAAAAAAAAAAAAAA" << std::endl;
     int offset;
-
     lists_length = 0;
 
     Lout.splitList(Splited_Lout,numThreads);
@@ -457,10 +423,7 @@ void ActiveContour::do_one_iteration_in_cycle2()
                 ++Lout_point;
             }
         }
-
-
         clean_Lin(tid); // eliminate Lin redundant points
-
 
         // scan through Lin with a conditional increment
         for( list<int>::iterator Lin_point = Splited_Lin[tid]->begin(); !Lin_point.end(); )
@@ -482,10 +445,7 @@ void ActiveContour::do_one_iteration_in_cycle2()
                 ++Lin_point;
             }
         }
-
-
         clean_Lout(tid); // eliminate Lout redundant points
-
     }
 
     Lout.collectList(&Splited_Lout);
@@ -723,7 +683,7 @@ list<int>::iterator ActiveContour::switch_in(list<int>::iterator Lout_point, int
 
     int value = *Lout_point;
 
-    Lout_point = Splited_Lout[tid]->erase(Lout_point);
+    Lout_point = Splited_Lout[tid]->erase(Lout_point,tid);
 
     Splited_Lin[tid]->push_front(value);
 
@@ -804,7 +764,7 @@ list<int>::iterator ActiveContour::switch_out(list<int>::iterator Lin_point,int 
 
     int value = *Lin_point;
 
-    Lin_point = Splited_Lin[tid]->erase(Lin_point);
+    Lin_point = Splited_Lin[tid]->erase(Lin_point,tid);
 
     Splited_Lout[tid]->push_front(value);
 
@@ -1053,7 +1013,7 @@ void ActiveContour::clean_Lin(int tid)
         if( isRedundantLinPoint(offset) )
         {
             phi[offset] = -3; // -1 ==> -3
-            Lin_point =  Splited_Lin[tid]->erase(Lin_point); // Lin_point ∈ Lin ==> Lin_point ∈ Rin
+            Lin_point =  Splited_Lin[tid]->erase(Lin_point,tid); // Lin_point ∈ Lin ==> Lin_point ∈ Rin
             // erase function returns a new Lin_point
             // which is the next point of the former Lin_point
 
@@ -1079,7 +1039,7 @@ void ActiveContour::clean_Lout(int tid)
         if( isRedundantLoutPoint(offset) )
         {
             phi[offset] = 3; // 1 ==> 3
-            Lout_point = Splited_Lout[tid]->erase(Lout_point); // Lout_point ∈ Lout ==> Lout_point ∈ Rout
+            Lout_point = Splited_Lout[tid]->erase(Lout_point,tid); // Lout_point ∈ Lout ==> Lout_point ∈ Rout
             // erase function returns a new Lout_point
             // which is the next point of the former Lout_point
         }

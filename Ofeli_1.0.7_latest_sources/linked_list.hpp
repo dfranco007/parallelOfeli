@@ -261,37 +261,21 @@ public :
     iterator insert_after(iterator position, const T& value);
 
     //! Removes from the list container the element at \a position and returns a valid iterator, i.e. the position of the next element.
-    iterator erase(iterator position);
+    iterator erase(iterator position, int tid);
 
     //! Removes from the list container the element at \a ++position and returns the position.
     iterator erase_after(iterator position);
 
-    //! Removes an element \a moved (of another list or list \a *this) and inserts at the beginning of list \a *this. Equivalent to push_front(*it) and it = erase(it) without use of the operators \a new and \a delete.
-    //! Returns a valid iterator, i.e the position of the next element.
-    iterator splice_front(iterator moved);
+    //! Sets a dump element after position
+    iterator set_dump_after(iterator position);
 
-    //! Moves all elements of list \a moved to the beginnning of list \a *this.
-    void splice_front(list& moved);
+    //! Collect all subList of splitedList into the list which calls the function
+    void collectList(std::vector<list<int>* >* splitedList);
 
-    //! Removes elements by their value.
-    void remove(const T& value);
+    //! Splits de list in a number of parts equals number of threads
+    //! without modifying the original list
+    void splitList(std::vector< list<T> *>& splited_List, int numThreads);
 
-    //! Removes from the container all the elements for which \a Predicate \a predicate returns \c true. This calls the destructor of these objects and reduces the container size by the number of elements removed.
-    //! UnaryPredicate \a predicate can be implemented as any typed expression taking one argument of the same type as the elements container in the \a list and returning a bool (this may either be a function pointer or an object whose class implements \c operator()).
-    template <typename UnaryPredicate>
-    void remove_if(UnaryPredicate predicate);
-
-    //! This version accepting a binary predicate, a specific comparison function to determine the "uniqueness" of an element can be specified.
-    //! In fact, any behavior can be implemented (and not only an equality comparison), but notice that the function will call binary_pred(*i,*(i-1)) for all pairs of elements (where i is an iterator to an element, starting from the second) and remove i from the list if the predicate returns \c true.
-    template <typename BinaryPredicate>
-    void unique(BinaryPredicate compare);
-
-    //! Remove consecutive duplicate values.
-    void unique();
-
-    //! Exchanges the content of container \a list1 by the content of \a list2, which is another list object containing elements of the same type. Sizes may differ. Performs it in a constant time without copying.
-    //! Use this function if you don't have accesss to C++11 (formerly known as C++0x) "void std::swap(T& a, T& b)" version with semantic move.
-    static void swap(list& list1, list& list2);
 
     //////////////////////////// list information /////////////////////////////
 
@@ -320,24 +304,13 @@ public :
     //! Gets an array with the value of list \a *this.
     T* get_array(int array_length) const;
 
-    ///////////////////////////////////////////////////
-
-
-    //! Sets a dump element after position
-    iterator set_dump_after(iterator position);
-
-    //! Splits de list in a number of parts equals number of threads
-    //! without modifying the original list
-    void splitList(std::vector< list<T> *>& splited_List, int numThreads);
-
-    //! Collect all subList of splitedList into the list which calls the function
-    void collectList(std::vector<list<int>* >* splitedList);
-
     //! Gets the first element
     T getFirst() const;
 
     //! Gets the last element
     T getLast() const;
+
+    ///////////////////////////////////////////////////
 
 private :
 
@@ -346,6 +319,9 @@ private :
 
     //!Tail of the list
     Link tail;
+
+    //! List size
+    int listSize;
 };
 
 // function object definitions for the template function parameter BinaryPredicate
@@ -390,133 +366,3 @@ struct predicate_example
 #include "linked_list.tpp"
 
 #endif
-
-//! \class ofeli::list
-//! This class implements a singly linked list used by the implementation of Shi and Karl' algorithm. The elements stored are integers by default that correspond of the offset of the level set function buffer.
-
-/**
- * \example linked_list
- * \code
- * // How to use the linked list ?
- *
- * #include <iostream>
- *
- * ofeli::list<int> list; // list is empty
- * list.push_front(99); // list = 99
- * list.push_front(99); // list = 99|99
- * list.push_front(2);  // list = 2|99|99
- * list.push_front(5);  // list = 5|2|99|99
- * list.push_front(99); // list = 99|5|2|99|99
- * std::cout << list << std::endl;
- * \endcode
- * \code
- * Standard output result :
- *
- *      Linked list
- * ---------------------
- *  Position | Value
- * ---------------------
- *     1     |   99
- *     2     |   5
- *     3     |   2
- *     4     |   99
- *     5     |   99
- * ---------------------
- * \endcode
- * \code
- * list.push_front(1);  // list = 1|99|5|2|99|99
- * list.push_front(99); // list = 99|1|99|5|2|99|99
- * std::cout << list << std::endl;
- * \endcode
- * \code
- * Standard output result :
- *
- *      Linked list
- * ---------------------
- *  Position | Value
- * ---------------------
- *     1     |   99
- *     2     |   1
- *     3     |   99
- *     4     |   5
- *     5     |   2
- *     6     |   99
- *     7     |   99
- * ---------------------
- * \endcode
- * \code
- * // Removes all values of the list strictly greater than 50.
- *
- * // void begin() : the current position is the head of the list
- * // bool end() : true if the current position is the tail of the list
- *
- * for( list.begin(); !list.end(); )
- * {
- *     if( list.get_current() > 50 ) // if the value at the current position is greater than 50
- *     {
- *         list.erase(); // erase the value at the current position, the current position is the next element, now
- *     }
- *     else
- *     {
- *         ++list; // similar to "++iterator;" for the STL list, moves to the next element in the list.
- *     }
- * }
- * std::cout << list << std::endl;
- * \endcode
- * \code
- * Standard output result :
- *
- *      Linked list
- * ---------------------
- *  Position | Value
- * ---------------------
- *     1     |   1
- *     2     |   5
- *     3     |   2
- * ---------------------
- * \endcode
- * \code
- * list.clear(); // list is empty
- * list.push_front(63);
- * std::cout << list << std::endl;
- * \endcode
- * \code
- * Standard output result :
- *
- *      Linked list
- * ---------------------
- *  Position | Value
- * ---------------------
- *     1     |   63
- * ---------------------
- *
- * \endcode
- * \code
- * // If you want to read a list without modifying it. You should use const_iterator.
- * for( ofeli::list<int>::const_iterator it = list.get_begin(); !it.end(); ++it ) // scan through the list
-   {
-       std::cout << "value = " << *it << std::endl;
-   }
- * \endcode
- */
-
-//! \struct ofeli::equal_to
-//! This class defines function objects for the equality comparison operation. Generically, function objects are instances of a class with member function \c operator() defined. This member function allows the object to be used with the same syntax as a regular function call, and therefore it can be used in templates instead of a pointer to a function. \c equal_to has its \c operator() member defined such that it returns \c true if its two arguments compare equal to each other using \c operator==, and \c false otherwise. This class can be used with the template functions \c list<T>::sort(BinaryPredicate compare) and list<T>::put_away(BinaryPredicate compare).
-
-//! \struct ofeli::not_equal_to
-//! This class defines function objects for the non-equality comparison operation. Generically, function objects are instances of a class with member function \c operator() defined. This member function allows the object to be used with the same syntax as a regular function call, and therefore it can be used in templates instead of a pointer to a function. \c not_equal_to has its \c operator() member defined such that it returns \c true if its two arguments do not compare equal to each other using \c operator!=, and \c false otherwise. This class can be used with the template function \c list<T>::sort(BinaryPredicate compare).
-
-//! \struct ofeli::greater
-//! This class defines function objects for the "greater than" inequality comparison operation. Generically, function objects are instances of a class with member function \c operator() defined. This member function allows the object to be used with the same syntax as a regular function call, and therefore it can be used in templates instead of a pointer to a function. \c greater has its \c operator() member defined such that it returns \c true if its first argument compares greater than the second one using \c operator>, and \c false otherwise. This class can be used with the template function \clist<T>::sort(BinaryPredicate compare).
-
-//! \struct ofeli::less
-//! This class defines function objects for the "less than" inequality comparison operation. Generically, function objects are instances of a class with member function \c operator() defined. This member function allows the object to be used with the same syntax as a regular function call, and therefore it can be used in templates instead of a pointer to a function. \c less has its \c operator() member defined such that it returns \c true if its first argument compares lower than the second one using \c operator<, and \c false otherwise. This class can be used with the template function \c list<T>::sort(BinaryPredicate compare).
-
-//! \struct ofeli::greater_equal
-//! This class defines function objects for the "greater than or equal to" comparison operation (>=). Generically, function objects are instances of a class with member function \c operator() defined. This member function allows the object to be used with the same syntax as a regular function call, and therefore it can be used in templates instead of a pointer to a function. \c greater_equal has its \c operator() member defined such that it returns \c true if its first argument compares greater than or equal to the second one using \c operator>=, and \c false otherwise. This class can be used with the template function \c list<T>::sort(BinaryPredicate compare).
-
-//! \struct ofeli::less_equal
-//! This class defines function objects for the "less than or equal to" comparison operation (<=). Generically, function objects are instances of a class with member function \c operator() defined. This member function allows the object to be used with the same syntax as a regular function call, and therefore it can be used in templates instead of a pointer to a function. \c less_equal has its \c operator() member defined such that it returns \c true if its first argument compares lower than or equal to the second one using \c operator<=, and \c false otherwise. This class can be used with the template function \c list<T>::sort(BinaryPredicate compare).
-
-//! \struct ofeli::predicate_example
-//! This class defines function object for an example of an unary predicate. The function returns \c true if a value is between 10 and 20 or is not equal to 13 and \c false otherwise. The user can implement his own unary predicate in order to use it with the template function \c list<T>::remove_if(UnaryPredicate predicate).
