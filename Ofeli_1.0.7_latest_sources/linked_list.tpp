@@ -319,7 +319,7 @@ inline typename list<T>::iterator list<T>::insert_after(iterator position, const
 }
 
 template <typename T>
-inline typename list<T>::iterator list<T>::erase(iterator position, int tid)
+inline typename list<T>::iterator list<T>::erase(iterator position)
 {    
     Link nextNode = position.node->next;
     Link previousNode = NULL;
@@ -378,13 +378,17 @@ inline typename list<T>::iterator list<T>::set_dump_after(iterator position)
 }
 
 template <typename T>
-void list<T>::collectList(std::vector<list<int>* >* splitedList)
+void list<T>::collectList(std::vector<list<int>* >* splitedList,Node*** &sublistHead, int** &sublistHeadPosition,int list, int numThreads)
 {
     head = splitedList->at(0)->head;
+    sublistHead[list][0]=head;
     listSize=0;
 
     for(int i=0; i < splitedList->size(); i++)
     {
+        sublistHead[list][i]= splitedList->at(i)->head;
+        sublistHeadPosition[list][i] = listSize +1;
+
         listSize+=  splitedList->at(i)->size();
         if(i < splitedList->size()-1){
             splitedList->at(i)->tail->next = splitedList->at(i+1)->head;
@@ -395,68 +399,99 @@ void list<T>::collectList(std::vector<list<int>* >* splitedList)
             tail = splitedList->at(i)->tail;
         }
     }
-}
 
-
-template <typename T>
-inline void list<T>::splitList(std::vector< list<T> *>& splited_List, int numThreads)
-{
-    //rest computation to balance the deal
-    int nElements = size();
+    // Recalculate sublists head pointers positions
     int r=0;
-    if( (nElements % numThreads)==1 ) r=1;
-    int elemPerThread = (nElements / numThreads) + r;
-    int cont=1, listNumber=0;
+    if( (listSize % numThreads) == 1) r =1;
+    int nElements = (listSize/numThreads) + r;
 
-    //Initialize iterators
-    iterator position = begin();
-
-    //Puts the first element (to change cont wisely)
-    splited_List[listNumber]->head = head;
-    ++position;
-    cont++;
-
-    while(!position.end())
+    for(int i=1; i < numThreads; i++)
     {
-        //Change subList
-        if((cont % elemPerThread)== 0){
-
-            //Set tail and size
-            splited_List[listNumber]->tail = position.node;
-            splited_List[listNumber]->listSize = cont;
-            cont=0;
-            //Inserts a dump object
-            position = set_dump_after(position);
-            cont++;
-
-            if(listNumber < numThreads -1)
+        int posHead = sublistHeadPosition[list][i];
+        if(posHead < (i * nElements) +1)
+        {
+            for(; posHead <= (i * nElements); posHead++)
             {
-                //Start constructing the next sublist
-                listNumber++;
-                splited_List[listNumber]->head = position.node;
-                splited_List[listNumber]->head->previous = NULL;
-                cont++;
-                ++position;
+                sublistHead[list][i] = sublistHead[list][i]->next;
+                sublistHeadPosition[list][i]++;
             }
         }
         else
         {
-            //Save the last node analized
-            Link last = position.node;
-
-            ++position;
-
-            //Fixing odd numbers problem
-            if(position.end())
+            for(; posHead > ((i * nElements)+1); posHead--)
             {
-                splited_List[listNumber]->tail = last;
-                splited_List[listNumber]->listSize = cont;
+                sublistHead[list][i] = sublistHead[list][i]->previous;
+                sublistHeadPosition[list][i]--;
             }
-            cont++;
         }
     }
+
 }
 
+
+template <typename T>
+inline void list<T>::splitList(std::vector< list<T> *>& splited_List, int numThreads, Node*** sublistHead, int** sublistHeadPosition,int list)
+{
+    int listNumber=0, cont=0,i=1;
+
+    splited_List[listNumber]->head = sublistHead[list][0];
+    listNumber++;
+
+    for(; i< numThreads; i++)
+    {
+        Link position = sublistHead[list][i];
+        position = position->previous;
+
+        // Set the tail and the size of the previous sublist
+        splited_List[listNumber-1]->tail = position;
+        splited_List[listNumber-1]->listSize = sublistHeadPosition[list][i] -1 - cont;
+        cont = cont + splited_List[listNumber-1]->listSize;
+
+        position = set_dump_after(position).node;
+
+        // Set the head
+        splited_List[listNumber]->head = position;
+
+        // Invalide the previous pointer
+        position->previous = NULL;
+
+        listNumber++;
+    }
+
+    // Set the tail and the size of the last sublist
+    splited_List[listNumber-1]->tail = end().node;
+    splited_List[listNumber-1]->listSize = size() -cont;
+}
+
+template <typename T>
+void list<T>::initialize_sublist_control(int listNumber, int numThreads, Node*** sublistHead, int** sublistHeadPosition)
+{
+    //Calculation of the number of elements assigned to each thread
+    int r=0;
+    if( (size()%numThreads) == 1) r=1;
+    int nElementsPerThread = (size()/numThreads)+r;
+
+    int cont=0,j=0;
+    Link position = head;
+
+    sublistHead[listNumber][j] =  position;
+    sublistHeadPosition[listNumber][j] = cont+1;
+    position = position->next;
+    j++;
+    cont++;
+
+    while( position->next != NULL )
+    {
+        if((cont % nElementsPerThread) ==0)
+        {
+            sublistHead[listNumber][j] =  position;
+            sublistHeadPosition[listNumber][j] = cont+1;
+            j++;
+        }
+        cont++;
+        position = position->next;
+    }
+}
 
 //////////////////////////// list information /////////////////////////////
 

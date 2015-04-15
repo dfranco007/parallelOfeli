@@ -46,10 +46,8 @@
 
 namespace ofeli
 {
-
 class ActiveContour
 {
-
 public :
 
     //! Constructor to initialize the active contour from geometrical parameters of an unique shape, an ellipse or a rectangle.
@@ -107,6 +105,8 @@ public :
     void divide_Lout();
     //! Divide la lista Lout en varios trozos que corresponden al número de threads.
     void divide_Lin();
+    //! Calculates the covering of the objects found in the image
+    void calculateCovering() const;
 
 protected :
 
@@ -116,6 +116,10 @@ protected :
 
     //! Initialization of #Lout and #Lin.
     void initialize_lists();
+
+    //! Initialization the control of the sublist
+    void initialize_sublists_control();
+
 
     //! Calculates the offset of #phi or the image data buffer with the position (\a x,\a y).
     int find_offset(int x, int y) const;
@@ -176,6 +180,7 @@ private :
 
     //! Eliminates redundant points in #Lout. Each point of a list must be connected at least by one point of the other list.
     void clean_Lout(int tid);
+
 
 
 
@@ -267,8 +272,12 @@ private :
     std::vector<list<int> *> Splited_Lout;
     //! Splited Lin
     std::vector<list<int> *> Splited_Lin;
-    //!Number of threads
+    //! Number of threads
     int numThreads;
+    //! Pointers to the start of each sublists
+    list<int>::Node*** sublistHead;
+    //! Position of the head of each sublists in main lists
+    int** sublistHeadPosition;
 
 };
 

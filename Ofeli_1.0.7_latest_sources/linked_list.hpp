@@ -63,12 +63,42 @@ public :
 
     class iterator;
 
-private :
-
     //! Element of the list.
     struct Node;
+
     //! Link is a pointer to a Node.
     typedef Node* Link;
+
+    //! This structure implements a node of class \a list. It is composed by an element of type \a T and a pointer on the next node.
+    struct Node
+    {
+        //! Constructor.
+        Node(const T& data1, Link next1, Link previous1) : data(data1), next(next1), previous(previous1)
+        {
+        }
+        //! Constructor.
+        Node(Node &node1) : data(node1.data), next(node1.next), previous(node1.previous)
+        {
+        }
+
+        //! Gets the node data of the Node
+        T operator*() const
+        {
+            return data;
+        }
+        //! Checks if the node is at the end of the list, i.e. if the node is the sentinel node.
+        bool end() const
+        {
+            return ( next == NULL) ? true : false;
+        }
+
+        //! Element storage.
+        T data;
+        //! Pointer to the next node.
+        Link next;
+        //! Pointer to the previous node.
+        Link previous;
+    };
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -154,38 +184,7 @@ public :
         Link node;
     };
 
-private :
 
-    //! This structure implements a node of class \a list. It is composed by an element of type \a T and a pointer on the next node.
-    struct Node
-    {
-        //! Constructor.
-        Node(const T& data1, Link next1, Link previous1) : data(data1), next(next1), previous(previous1)
-        {
-        }
-        //! Constructor.
-        Node(Node &node1) : data(node1.data), next(node1.next), previous(node1.previous)
-        {
-        }
-
-        //! Gets the node data of the Node
-        T operator*() const
-        {
-            return data;
-        }
-        //! Checks if the node is at the end of the list, i.e. if the node is the sentinel node.
-        bool end() const
-        {
-            return ( next == NULL) ? true : false;
-        }
-
-        //! Element storage.
-        T data;
-        //! Pointer to the next node.
-        Link next;
-        //! Pointer to the previous node.
-        Link previous;
-    };
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -261,7 +260,7 @@ public :
     iterator insert_after(iterator position, const T& value);
 
     //! Removes from the list container the element at \a position and returns a valid iterator, i.e. the position of the next element.
-    iterator erase(iterator position, int tid);
+    iterator erase(iterator position);
 
     //! Removes from the list container the element at \a ++position and returns the position.
     iterator erase_after(iterator position);
@@ -270,11 +269,14 @@ public :
     iterator set_dump_after(iterator position);
 
     //! Collect all subList of splitedList into the list which calls the function
-    void collectList(std::vector<list<int>* >* splitedList);
+    void collectList(std::vector<list<int>* >* splitedList,Node*** &sublistHead, int** &sublistHeadPosition,int list, int numThreads);
 
     //! Splits de list in a number of parts equals number of threads
     //! without modifying the original list
-    void splitList(std::vector< list<T> *>& splited_List, int numThreads);
+    inline void splitList(std::vector< list<T> *>& splited_List, int numThreads, Node*** sublistHead, int** sublistHeadPosition,int list);
+
+    //! Initializates necessary control of sublists to construct them
+    void initialize_sublist_control(int listNumber, int numThreads, Node*** sublistHead, int** sublistHeadPosition);
 
 
     //////////////////////////// list information /////////////////////////////

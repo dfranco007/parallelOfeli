@@ -93,6 +93,13 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
         Splited_Lin.push_back(new list<int>());
     }
 
+    sublistHead = new list<int>::Node**[2];
+    for(int i=0; i < 2; i++) sublistHead[i] = new list<int>::Node*[numThreads];
+    sublistHeadPosition = new int*[2];
+    for(int i=0; i < 2; i++) sublistHeadPosition[i] = new int[numThreads];
+
+    Lout.initialize_sublist_control(0,numThreads,sublistHead, sublistHeadPosition);
+    Lin.initialize_sublist_control(1,numThreads,sublistHead, sublistHeadPosition);
 }
 
 ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int img_height1,
@@ -131,6 +138,13 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
         Splited_Lout.push_back(new list<int>());
         Splited_Lin.push_back(new list<int>());
     }
+    sublistHead = new list<int>::Node**[2];
+    for(int i=0; i < 2; i++) sublistHead[i] = new list<int>::Node*[numThreads];
+    sublistHeadPosition = new int*[2];
+    for(int i=0; i < 2; i++) sublistHeadPosition[i] = new int[numThreads];
+
+    Lout.initialize_sublist_control(0,numThreads,sublistHead, sublistHeadPosition);
+    Lin.initialize_sublist_control(1,numThreads,sublistHead, sublistHeadPosition);
 }
 
 ActiveContour::ActiveContour(const ActiveContour& ac) :
@@ -144,7 +158,8 @@ ActiveContour::ActiveContour(const ActiveContour& ac) :
     isStopped(ac.isStopped), hasLastCycle2(ac.hasLastCycle2), hasListsChanges(ac.hasListsChanges),
     hasOscillation(ac.hasOscillation),
     hasOutwardEvolution(ac.hasOutwardEvolution), hasInwardEvolution(ac.hasInwardEvolution),
-    Lout(ac.Lout), Lin(ac.Lin), Splited_Lout(ac.Splited_Lout), Splited_Lin(ac.Splited_Lin), numThreads(ac.numThreads)
+    Lout(ac.Lout), Lin(ac.Lin), Splited_Lout(ac.Splited_Lout), Splited_Lin(ac.Splited_Lin), numThreads(ac.numThreads),
+    sublistHead(ac.sublistHead), sublistHeadPosition(ac.sublistHeadPosition)
 {
     if( ac.img_data == NULL )
     {
@@ -328,8 +343,21 @@ void ActiveContour::do_one_iteration_in_cycle1()
 
     hasOutwardEvolution = false;
 
-    Lout.splitList(Splited_Lout,numThreads);
-    Lin.splitList(Splited_Lin,numThreads);
+    int cont=1;bool se= false;
+    if( Lout.size() > 240)
+    {
+        se=true;
+        std::cout << "PRIMERA-LOUT: " <<  Lout.size() << std::endl;
+        for(list<int>::iterator i = Lout.begin(); !i.end(); ++i )
+        {
+            std::cout << ", " << cont << "-" << *i;
+            cont++;
+        }std::cout << std::endl;
+    }
+
+
+    Lout.splitList(Splited_Lout,numThreads,sublistHead, sublistHeadPosition,0);
+    Lin.splitList(Splited_Lin,numThreads,sublistHead, sublistHeadPosition,1);
 
     int tid=0;
     #pragma omp parallel private(tid)
@@ -378,24 +406,56 @@ void ActiveContour::do_one_iteration_in_cycle1()
         }
 
         clean_Lout(tid); // eliminate Lout redundant points
+    }
 
-    } 
+    if(se==true)
+    {
+        for(int i=0; i < 2; i++)
+        {
+            std::cout << "Trozo: " << i << ",size: " << Splited_Lout[i]->size() << std::endl;
+            for(list<int>::iterator itera = Splited_Lout[i]->begin(); !itera.end(); ++itera)
+            {
+                std::cout << ", " << cont << "-" << *itera;
+            }std::cout << std::endl;
+        }
+    }
 
-    Lout.collectList(&Splited_Lout);
-    Lin.collectList(&Splited_Lin);
+    Lout.collectList(&Splited_Lout,sublistHead, sublistHeadPosition,0,numThreads );
+    Lin.collectList(&Splited_Lin,sublistHead, sublistHeadPosition,1,numThreads);
+
+    if( Lout.size() > 240)
+    {
+        cont=1;
+        std::cout << "ULTIMA-LOUT: " <<  Lout.size() << std::endl;
+        for(list<int>::iterator i = Lout.begin(); !i.end(); ++i )
+        {
+            std::cout << ", " << cont << "-" << *i;
+            cont++;
+        }std::cout << std::endl;
+    }
 
     iteration++;
-
     return;
 }
 
 void ActiveContour::do_one_iteration_in_cycle2()
 {
+    std::cout << "/////////////////////////////////////////////////////////////////////" << std::endl;
+
     int offset;
     lists_length = 0;
 
-    Lout.splitList(Splited_Lout,numThreads);
-    Lin.splitList(Splited_Lin,numThreads);
+    int cont=1;
+    std::cout << "PRIMERA-LOUT: " <<  Lout.size() << std::endl;
+    for(list<int>::iterator i = Lout.begin(); !i.end(); ++i )
+    {
+        std::cout << ", " << cont << "-" << *i;
+        cont++;
+    }std::cout << std::endl;
+
+
+    Lout.splitList(Splited_Lout,numThreads,sublistHead, sublistHeadPosition,0);
+    Lin.splitList(Splited_Lin,numThreads,sublistHead, sublistHeadPosition,1);
 
     int tid;
 
@@ -412,7 +472,6 @@ void ActiveContour::do_one_iteration_in_cycle2()
             {
                 // updates of the variables to calculate the means Cout and Cin
                 updates_for_means_in2(offset); // virtual function for region-based models
-
                 Lout_point = switch_in(Lout_point,tid); // outward local movement
                 // switch_in function returns a new Lout_point
                 // which is the next point of the former Lout_point
@@ -434,7 +493,6 @@ void ActiveContour::do_one_iteration_in_cycle2()
             {
                 // updates of the variables to calculate the means Cout and Cin
                 updates_for_means_out2(offset); // virtual function for region-based models
-
                 Lin_point = switch_out(Lin_point,tid); // inward local movement
                 // switch_out function returns a new Lin_point
                 // which is the next point of the former Lin_point
@@ -448,8 +506,18 @@ void ActiveContour::do_one_iteration_in_cycle2()
         clean_Lout(tid); // eliminate Lout redundant points
     }
 
-    Lout.collectList(&Splited_Lout);
-    Lin.collectList(&Splited_Lin);
+    Lout.collectList(&Splited_Lout,sublistHead, sublistHeadPosition,0,numThreads );
+    Lin.collectList(&Splited_Lin,sublistHead, sublistHeadPosition,1,numThreads);
+
+    cont=1;
+    std::cout << "ULTIMA-LOUT: " <<  Lout.size() << std::endl;
+    for(list<int>::iterator i = Lout.begin(); !i.end(); ++i )
+    {
+        std::cout << ", " << cont << "-" << *i;
+        cont++;
+    }std::cout << std::endl;
+
+    std::cout << "/////////////////////////////////////////////" << std::endl;
 
     iteration++;
 
@@ -683,7 +751,7 @@ list<int>::iterator ActiveContour::switch_in(list<int>::iterator Lout_point, int
 
     int value = *Lout_point;
 
-    Lout_point = Splited_Lout[tid]->erase(Lout_point,tid);
+    Lout_point = Splited_Lout[tid]->erase(Lout_point);
 
     Splited_Lin[tid]->push_front(value);
 
@@ -764,7 +832,7 @@ list<int>::iterator ActiveContour::switch_out(list<int>::iterator Lin_point,int 
 
     int value = *Lin_point;
 
-    Lin_point = Splited_Lin[tid]->erase(Lin_point,tid);
+    Lin_point = Splited_Lin[tid]->erase(Lin_point);
 
     Splited_Lout[tid]->push_front(value);
 
@@ -1013,7 +1081,7 @@ void ActiveContour::clean_Lin(int tid)
         if( isRedundantLinPoint(offset) )
         {
             phi[offset] = -3; // -1 ==> -3
-            Lin_point =  Splited_Lin[tid]->erase(Lin_point,tid); // Lin_point ∈ Lin ==> Lin_point ∈ Rin
+            Lin_point =  Splited_Lin[tid]->erase(Lin_point); // Lin_point ∈ Lin ==> Lin_point ∈ Rin
             // erase function returns a new Lin_point
             // which is the next point of the former Lin_point
 
@@ -1039,7 +1107,7 @@ void ActiveContour::clean_Lout(int tid)
         if( isRedundantLoutPoint(offset) )
         {
             phi[offset] = 3; // 1 ==> 3
-            Lout_point = Splited_Lout[tid]->erase(Lout_point,tid); // Lout_point ∈ Lout ==> Lout_point ∈ Rout
+            Lout_point = Splited_Lout[tid]->erase(Lout_point); // Lout_point ∈ Lout ==> Lout_point ∈ Rout
             // erase function returns a new Lout_point
             // which is the next point of the former Lout_point
         }
@@ -1253,6 +1321,22 @@ int ActiveContour::get_iteration_max() const
 bool ActiveContour::get_isStopped() const
 {
     return isStopped;
+}
+
+void ActiveContour::calculateCovering() const
+{
+    int sum=0,size=img_width*img_height;
+
+    #pragma omp parallel for reduction(+:sum)
+        for(int i= 0; i < size; i++)
+        {
+           if(phi[i] > 0 )
+           {
+                sum++;
+           }
+        }
+    double percentage = (sum * 100) / size;
+    std::cout << "Recubrimiento: " << percentage << "%" << std::endl;
 }
 
 }

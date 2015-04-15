@@ -2400,6 +2400,7 @@ void ImageViewer::start()
             startTime = std::clock();
 
             ac->evolve();
+
             Lout1 = &ac->get_Lout();
             Lin1 = &ac->get_Lin();
 
@@ -2442,6 +2443,9 @@ void ImageViewer::start()
             }
             infinite_loop();
         }
+
+        //Calculate the covering
+        ac->calculateCovering();
 
         time_text->setText("<font color=red>"+tr("time = ")+QString::number(elapsedTime)+" s");
         show_phi_list_value();
