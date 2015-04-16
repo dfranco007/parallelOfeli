@@ -85,21 +85,20 @@ private :
     virtual void calculate_means();
 
     //! Computes external speed \a Fd with the Chan-Vese model for a current point \a (x,y) of #Lout or #Lin.
-    virtual int compute_external_speed_Fd(int offset);
+    virtual int compute_external_speed_Fd(int offset, int tid);
 
 
     //! Updates variables #sum_in, #sum_out, #n_in and #n_out, before each #switch_in, in the cycle 1, in order to calculate means #Cout and #Cin.
-    virtual void updates_for_means_in1();
+    virtual void updates_for_means_in1(int tid);
 
     //! Updates variables #sum_in, #sum_out, #n_in and #n_out, before each #switch_out, in the cycle 1, in order to calculate means #Cout and #Cin.
-    virtual void updates_for_means_out1();
+    virtual void updates_for_means_out1(int tid);
 
     //! Updates variables #sum_in, #sum_out, #n_in and #n_out, before each #switch_in, in the cycle 2, in order to calculate means #Cout and #Cin.
-    virtual void updates_for_means_in2(int offset);
+    virtual void updates_for_means_in2(int offset, int tid);
 
     //! Updates variables #sum_in, #sum_out, #n_in and #n_out, before each #switch_out, in the cycle 2, in order to calculate means #Cout and #Cin.
-    virtual void updates_for_means_out2(int offset);
-
+    virtual void updates_for_means_out2(int offset, int tid);
 
 
 
@@ -110,6 +109,7 @@ private :
 
     //! Intensity or grey-level of the current pixel.
     int I;
+    int* I_perThread;
 
     //! Weight of the outside homogeneity criterion in the Chan-Vese model
     const int lambda_out;
