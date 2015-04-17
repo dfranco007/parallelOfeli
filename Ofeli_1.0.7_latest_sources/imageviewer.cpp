@@ -2443,7 +2443,6 @@ void ImageViewer::start()
             }
             infinite_loop();
         }
-
         //Calculate the covering
         ac->calculateCovering();
 

@@ -83,31 +83,30 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
     initialize_phi_with_a_shape(hasEllipse1, init_width1, init_height1, center_x1, center_y1);
     initialize_lists();
 
+    //Taking the number of threads
     #pragma omp parallel
     {
        numThreads = omp_get_num_threads();
     }
 
-
+    //Create the sublists
     for(int i=0; i < numThreads; i++)
     {
         Splited_Lout.push_back(new list<int>());
         Splited_Lin.push_back(new list<int>());
     }
 
+    //Create the sublists control pointers to change splitList to constant complexity
     sublistHead = new list<int>::Node**[2];
     for(int i=0; i < 2; i++) sublistHead[i] = new list<int>::Node*[numThreads];
     sublistHeadPosition = new int*[2];
     for(int i=0; i < 2; i++) sublistHeadPosition[i] = new int[numThreads];
-
     Lout.initialize_sublist_control(0,numThreads,sublistHead, sublistHeadPosition);
     Lin.initialize_sublist_control(1,numThreads,sublistHead, sublistHeadPosition);
 
-    hasOutwardEvolutionPerThread = new bool[numThreads];
-    for(int i=0; i < numThreads; i++) hasOutwardEvolutionPerThread[i] = false;
-    hasInwardEvolutionPerThread = new bool[numThreads];
-    for(int i=0; i < numThreads; i++) hasInwardEvolutionPerThread[i] = false;
-
+    //Initiliaze some extra variable
+    hasOutwardEvolutionInThread = new bool[numThreads];
+    hasInwardEvolutionInThread = new bool[numThreads];
 }
 
 ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int img_height1,
@@ -137,27 +136,30 @@ ActiveContour::ActiveContour(const unsigned char* img_data1, int img_width1, int
     std::memcpy(phi,phi_init1,img_size); // initialize phi with a buffer copy
     initialize_lists();
 
+    //Taking the number of threads
     #pragma omp parallel
     {
        numThreads = omp_get_num_threads();
     }
+
+    //Create the sublists
     for(int i=0; i < numThreads; i++)
     {
         Splited_Lout.push_back(new list<int>());
         Splited_Lin.push_back(new list<int>());
     }
+
+    //Create the sublists control pointers to change splitList to constant complexity
     sublistHead = new list<int>::Node**[2];
     for(int i=0; i < 2; i++) sublistHead[i] = new list<int>::Node*[numThreads];
     sublistHeadPosition = new int*[2];
     for(int i=0; i < 2; i++) sublistHeadPosition[i] = new int[numThreads];
-
     Lout.initialize_sublist_control(0,numThreads,sublistHead, sublistHeadPosition);
     Lin.initialize_sublist_control(1,numThreads,sublistHead, sublistHeadPosition);
 
-    hasOutwardEvolutionPerThread = new bool[numThreads];
-    for(int i=0; i < numThreads; i++) hasOutwardEvolutionPerThread[i] = false;
-    hasInwardEvolutionPerThread = new bool[numThreads];
-    for(int i=0; i < numThreads; i++) hasInwardEvolutionPerThread[i] = false;
+    //Initiliaze some extra variable
+    hasOutwardEvolutionInThread = new bool[numThreads];
+    hasInwardEvolutionInThread = new bool[numThreads];
 }
 
 ActiveContour::ActiveContour(const ActiveContour& ac) :
@@ -172,8 +174,8 @@ ActiveContour::ActiveContour(const ActiveContour& ac) :
     hasOscillation(ac.hasOscillation),
     hasOutwardEvolution(ac.hasOutwardEvolution), hasInwardEvolution(ac.hasInwardEvolution),
     Lout(ac.Lout), Lin(ac.Lin), Splited_Lout(ac.Splited_Lout), Splited_Lin(ac.Splited_Lin), numThreads(ac.numThreads),
-    sublistHead(ac.sublistHead), sublistHeadPosition(ac.sublistHeadPosition), hasOutwardEvolutionPerThread(ac.hasOutwardEvolutionPerThread),
-    hasInwardEvolutionPerThread(ac.hasInwardEvolutionPerThread)
+    sublistHead(ac.sublistHead), sublistHeadPosition(ac.sublistHeadPosition),
+    hasInwardEvolutionInThread(ac.hasInwardEvolutionInThread),  hasOutwardEvolutionInThread(ac.hasOutwardEvolutionInThread)
 {
     if( ac.img_data == NULL )
     {
@@ -352,7 +354,6 @@ ActiveContour::~ActiveContour()
 
 void ActiveContour::do_one_iteration_in_cycle1()
 {
-
     // means of the Chan-Vese model for children classes ACwithoutEdges and ACwithoutEdgesYUV
     calculate_means(); // virtual function for region-based models
 
@@ -362,23 +363,20 @@ void ActiveContour::do_one_iteration_in_cycle1()
     Lout.splitList(Splited_Lout,numThreads,sublistHead, sublistHeadPosition,0);
     Lin.splitList(Splited_Lin,numThreads,sublistHead, sublistHeadPosition,1);
 
-    int tid;
-
+    int tid=0;
     #pragma omp parallel private(tid)
-    {
+    { 
+        hasOutwardEvolutionInThread[tid]=false;
         tid = omp_get_thread_num();
 
-        hasOutwardEvolutionPerThread[tid] = false;
-        hasInwardEvolutionPerThread[tid] = false;      
-
         for( list<int>::iterator Lout_point = Splited_Lout[tid]->begin(); !Lout_point.end(); )
-        {          
-            if(  compute_external_speed_Fd(*Lout_point,tid) > 0 )
+        {
+            if( compute_external_speed_Fd(*Lout_point) > 0 )
             {
-                hasOutwardEvolutionPerThread[tid] = true;
+                hasOutwardEvolutionInThread[tid]=true;
 
                 // updates of the variables to calculate the means Cout and Cin
-                updates_for_means_in1(tid); // virtual function for region-based models
+                updates_for_means_in1(); // virtual function for region-based models
                 Lout_point = switch_in(Lout_point,tid); // outward local movement
                 // switch_in function returns a new Lout_point
                 // which is the next point of the former Lout_point
@@ -391,14 +389,16 @@ void ActiveContour::do_one_iteration_in_cycle1()
 
         clean_Lin(tid); // eliminate Lin redundant points
 
+        hasInwardEvolutionInThread[tid]=false;
+
         for( list<int>::iterator Lin_point = Splited_Lin[tid]->begin(); !Lin_point.end(); )
-        {            
-            if( compute_external_speed_Fd(*Lin_point,tid) < 0 )
+        {
+            if( compute_external_speed_Fd(*Lin_point) < 0 )
             {
-                hasInwardEvolutionPerThread[tid] = true;
+                hasInwardEvolutionInThread[tid]=true;
 
                 // updates of the variables to calculate the means Cout and Cin
-                updates_for_means_out1(tid); // virtual function for region-based models
+                updates_for_means_out1(); // virtual function for region-based models
 
                 Lin_point = switch_out(Lin_point,tid); // inward local movement
                 // switch_out function returns a new Lin_point
@@ -416,41 +416,50 @@ void ActiveContour::do_one_iteration_in_cycle1()
     Lout.collectList(&Splited_Lout,sublistHead, sublistHeadPosition,0,numThreads );
     Lin.collectList(&Splited_Lin,sublistHead, sublistHeadPosition,1,numThreads);
 
+    //Recalculate thread private variables
     for(int i=0; i < numThreads; i++)
     {
-        if(hasOutwardEvolutionPerThread[i]){ hasOutwardEvolution=true; break;}
+        if(hasOutwardEvolutionInThread[i])
+        {
+            hasOutwardEvolution = true;
+            break;
+        }
     }
     for(int i=0; i < numThreads; i++)
     {
-        if(hasInwardEvolutionPerThread[i]){ hasInwardEvolution=true; break;}
+        if(hasInwardEvolutionInThread[i])
+        {
+            hasInwardEvolution = true;
+            break;
+        }
     }
+
     iteration++;
     return;
 }
 
 void ActiveContour::do_one_iteration_in_cycle2()
 {
-    int offset;
+    int offset,tid,listSize;
     lists_length = 0;
 
     Lout.splitList(Splited_Lout,numThreads,sublistHead, sublistHeadPosition,0);
     Lin.splitList(Splited_Lin,numThreads,sublistHead, sublistHeadPosition,1);
 
-    int tid,listSize=0;
-
     #pragma omp parallel private(tid,offset) reduction(+:listSize)
     {
+        listSize=0;
         tid = omp_get_thread_num();
 
         // scan through Lout with a conditional increment
         for( list<int>::iterator Lout_point = Splited_Lout[tid]->begin(); !Lout_point.end(); )
-        {       
+        {
             offset = *Lout_point;
 
-            if(compute_internal_speed_Fint(offset) > 0 )
+            if( compute_internal_speed_Fint(offset) > 0 )
             {
                 // updates of the variables to calculate the means Cout and Cin
-                updates_for_means_in2(offset, tid); // virtual function for region-based models
+                updates_for_means_in2(offset); // virtual function for region-based models
                 Lout_point = switch_in(Lout_point,tid); // outward local movement
                 // switch_in function returns a new Lout_point
                 // which is the next point of the former Lout_point
@@ -461,35 +470,34 @@ void ActiveContour::do_one_iteration_in_cycle2()
                 ++Lout_point;
             }
         }
-
         clean_Lin(tid); // eliminate Lin redundant points
 
         // scan through Lin with a conditional increment
         for( list<int>::iterator Lin_point = Splited_Lin[tid]->begin(); !Lin_point.end(); )
-        {            
+        {
             offset = *Lin_point;
 
             if( compute_internal_speed_Fint(offset) < 0 )
             {
                 // updates of the variables to calculate the means Cout and Cin
-                updates_for_means_out2(offset, tid); // virtual function for region-based models
+                updates_for_means_out2(offset); // virtual function for region-based models
                 Lin_point = switch_out(Lin_point,tid); // inward local movement
                 // switch_out function returns a new Lin_point
                 // which is the next point of the former Lin_point
             }
             else
-            {            
+            {
                 listSize++;
                 ++Lin_point;
             }
-        }        
-        clean_Lout(tid); // eliminate Lout redundant points       
+        }
+        clean_Lout(tid); // eliminate Lout redundant points
     }
 
     Lout.collectList(&Splited_Lout,sublistHead, sublistHeadPosition,0,numThreads );
     Lin.collectList(&Splited_Lin,sublistHead, sublistHeadPosition,1,numThreads);
 
-    lists_length=listSize;
+    lists_length = listSize;
 
     iteration++;
 
@@ -656,7 +664,9 @@ list<int>::iterator ActiveContour::switch_in(list<int>::iterator Lout_point, int
     find_xy_position(offset,x,y); // x and y passed by reference
 
     // Outward local movement
+
     #ifndef VERSION_8_CONNECTED_NEIGHBORHOOD
+
     //==========   4-connected neighborhood   =========
     if( y > 0 )
     {
@@ -737,6 +747,7 @@ list<int>::iterator ActiveContour::switch_out(list<int>::iterator Lin_point,int 
     // Inward local movement
 
     #ifndef VERSION_8_CONNECTED_NEIGHBORHOOD
+
     //==========   4-connected neighborhood   =========
     if( y > 0 )
     {
@@ -1088,7 +1099,7 @@ void ActiveContour::clean_Lout(int tid)
     return;
 }
 
-int ActiveContour::compute_external_speed_Fd(int offset,int tid)
+int ActiveContour::compute_external_speed_Fd(int offset)
 {
     // this class should never be instantiated
 
@@ -1212,22 +1223,22 @@ void ActiveContour::calculate_means()
     return;
 }
 
-void ActiveContour::updates_for_means_in1(int tid)
+void ActiveContour::updates_for_means_in1()
 {
     return;
 }
 
-void ActiveContour::updates_for_means_out1(int tid)
+void ActiveContour::updates_for_means_out1()
 {
     return;
 }
 
-void ActiveContour::updates_for_means_in2(int offset, int tid)
+void ActiveContour::updates_for_means_in2(int offset)
 {
     return;
 }
 
-void ActiveContour::updates_for_means_out2(int offset, int tid)
+void ActiveContour::updates_for_means_out2(int offset)
 {
     return;
 }
