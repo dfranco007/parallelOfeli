@@ -363,20 +363,21 @@ void ActiveContour::do_one_iteration_in_cycle1()
     Lout.splitList(Splited_Lout,numThreads,sublistHead, sublistHeadPosition,0);
     Lin.splitList(Splited_Lin,numThreads,sublistHead, sublistHeadPosition,1);
 
-    int tid=0;
+    int tid;
     #pragma omp parallel private(tid)
-    { 
-        hasOutwardEvolutionInThread[tid]=false;
+    {
         tid = omp_get_thread_num();
+
+        hasOutwardEvolutionInThread[tid]=false;     
 
         for( list<int>::iterator Lout_point = Splited_Lout[tid]->begin(); !Lout_point.end(); )
         {
-            if( compute_external_speed_Fd(*Lout_point) > 0 )
+            if( compute_external_speed_Fd(*Lout_point, tid) > 0 )
             {
                 hasOutwardEvolutionInThread[tid]=true;
 
                 // updates of the variables to calculate the means Cout and Cin
-                updates_for_means_in1(); // virtual function for region-based models
+                updates_for_means_in1(tid); // virtual function for region-based models
                 Lout_point = switch_in(Lout_point,tid); // outward local movement
                 // switch_in function returns a new Lout_point
                 // which is the next point of the former Lout_point
@@ -393,13 +394,12 @@ void ActiveContour::do_one_iteration_in_cycle1()
 
         for( list<int>::iterator Lin_point = Splited_Lin[tid]->begin(); !Lin_point.end(); )
         {
-            if( compute_external_speed_Fd(*Lin_point) < 0 )
+            if( compute_external_speed_Fd(*Lin_point, tid) < 0 )
             {
                 hasInwardEvolutionInThread[tid]=true;
 
                 // updates of the variables to calculate the means Cout and Cin
-                updates_for_means_out1(); // virtual function for region-based models
-
+                updates_for_means_out1(tid); // virtual function for region-based models
                 Lin_point = switch_out(Lin_point,tid); // inward local movement
                 // switch_out function returns a new Lin_point
                 // which is the next point of the former Lin_point
@@ -459,7 +459,7 @@ void ActiveContour::do_one_iteration_in_cycle2()
             if( compute_internal_speed_Fint(offset) > 0 )
             {
                 // updates of the variables to calculate the means Cout and Cin
-                updates_for_means_in2(offset); // virtual function for region-based models
+                updates_for_means_in2(offset,tid); // virtual function for region-based models
                 Lout_point = switch_in(Lout_point,tid); // outward local movement
                 // switch_in function returns a new Lout_point
                 // which is the next point of the former Lout_point
@@ -480,7 +480,7 @@ void ActiveContour::do_one_iteration_in_cycle2()
             if( compute_internal_speed_Fint(offset) < 0 )
             {
                 // updates of the variables to calculate the means Cout and Cin
-                updates_for_means_out2(offset); // virtual function for region-based models
+                updates_for_means_out2(offset,tid); // virtual function for region-based models
                 Lin_point = switch_out(Lin_point,tid); // inward local movement
                 // switch_out function returns a new Lin_point
                 // which is the next point of the former Lin_point
@@ -508,7 +508,6 @@ ActiveContour& ActiveContour::operator++()
 {
 
     // Fast Two Cycle algorithm
-
     while( !isStopped )
     {
 
@@ -1099,7 +1098,7 @@ void ActiveContour::clean_Lout(int tid)
     return;
 }
 
-int ActiveContour::compute_external_speed_Fd(int offset)
+int ActiveContour::compute_external_speed_Fd(int offset, int tid)
 {
     // this class should never be instantiated
 
@@ -1223,22 +1222,22 @@ void ActiveContour::calculate_means()
     return;
 }
 
-void ActiveContour::updates_for_means_in1()
+void ActiveContour::updates_for_means_in1(int tid)
 {
     return;
 }
 
-void ActiveContour::updates_for_means_out1()
+void ActiveContour::updates_for_means_out1(int tid)
 {
     return;
 }
 
-void ActiveContour::updates_for_means_in2(int offset)
+void ActiveContour::updates_for_means_in2(int offset,int tid)
 {
     return;
 }
 
-void ActiveContour::updates_for_means_out2(int offset)
+void ActiveContour::updates_for_means_out2(int offset,int tid)
 {
     return;
 }

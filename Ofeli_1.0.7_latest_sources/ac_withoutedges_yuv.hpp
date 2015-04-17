@@ -103,20 +103,20 @@ private :
     virtual void calculate_means();
 
     //! Computes external speed \a Fd with the Chan-Vese model for a current point \a (x,y) of #Lout or #Lin.
-    virtual int compute_external_speed_Fd(int offset);
+    virtual int compute_external_speed_Fd(int offset,int tid);
 
 
     //! Updates the six sums, #n_in and #n_out, before each #switch_in, in the cycle 1, in order to calculate means #CoutYUV and #CinYUV.
-    virtual void updates_for_means_in1();
+    virtual void updates_for_means_in1(int tid);
 
     //! Updates the six sums, #n_in and #n_out, before each #switch_out, in the cycle 1, in order to calculate means #CoutYUV and #CinYUV.
-    virtual void updates_for_means_out1();
+    virtual void updates_for_means_out1(int tid);
 
     //! Updates the six sums, #n_in and #n_out, before each #switch_in, in the cycle 2, in order to calculate means #CoutYUV and #CinYUV.
-    virtual void updates_for_means_in2(int offset);
+    virtual void updates_for_means_in2(int offset,int tid);
 
     //! Updates the six sums, #n_in and #n_out, before each #switch_out, in the cycle 2, in order to calculate means #CoutYUV and #CinYUV.
-    virtual void updates_for_means_out2(int offset);
+    virtual void updates_for_means_out2(int offset,int tid);
 
     //! Calculates \a YUV value with a (#R,#G,#B) value.
     static void calculate_YUV(int R, int G, int B, int YUV[]);

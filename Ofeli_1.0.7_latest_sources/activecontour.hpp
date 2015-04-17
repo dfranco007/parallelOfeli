@@ -136,6 +136,8 @@ protected :
     const int img_size;
     //! Pointer on the level-set function buffer.
     char* const phi;
+    //! Number of threads
+    int numThreads;
 
     //! Gives the square of a value.
     template <typename T>
@@ -167,7 +169,7 @@ private :
     int compute_internal_speed_Fint(int offset);
 
     //! Computes the external speed \a Fd for a current point (\a x,\a y) of #Lout or #Lin.
-    virtual int compute_external_speed_Fd(int offset);
+    virtual int compute_external_speed_Fd(int offset, int tid);
 
     //! Finds if a current point (\a x,\a y) of #Lin is redundant.
     bool isRedundantLinPoint(int offset) const;
@@ -188,16 +190,16 @@ private :
     virtual void calculate_means();
 
     //! Specific step reimplemented in the children active contours ACwithoutEdges and ACwithoutEdgesYUV to update the variables to calculate the means \a Cout and \a Cin before each #switch_in, in the cycle 1.
-    virtual void updates_for_means_in1();
+    virtual void updates_for_means_in1(int tid );
 
     //! Specific step reimplemented in the children active contours ACwithoutEdges and ACwithoutEdgesYUV to update the variables to calculate the means \a Cout and \a Cin before each #switch_in, in the cycle 2.
-    virtual void updates_for_means_in2(int offset);
+    virtual void updates_for_means_in2(int offset,int tid);
 
     //! Specific step reimplemented in the children active contours ACwithoutEdges and ACwithoutEdgesYUV to update the variables to calculate the means \a Cout and \a Cin before each #switch_out, in the cycle 1.
-    virtual void updates_for_means_out1();
+    virtual void updates_for_means_out1(int tid);
 
     //! Specific step reimplemented in the children active contours ACwithoutEdges and ACwithoutEdgesYUV to update the variables to calculate the means \a Cout and \a Cin before each #switch_out, in the cycle 2.
-    virtual void updates_for_means_out2(int offset);
+    virtual void updates_for_means_out2(int offset,int tid);
 
 
 
@@ -277,8 +279,6 @@ private :
     std::vector<list<int> *> Splited_Lout;
     //! Splited Lin
     std::vector<list<int> *> Splited_Lin;
-    //! Number of threads
-    int numThreads;
     //! Pointers to the start of each sublists
     list<int>::Node*** sublistHead;
     //! Position of the head of each sublists in main lists

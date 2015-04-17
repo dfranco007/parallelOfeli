@@ -184,7 +184,7 @@ void ACwithoutEdgesYUV::calculate_means()
     return;
 }
 
-int ACwithoutEdgesYUV::compute_external_speed_Fd(int offset)
+int ACwithoutEdgesYUV::compute_external_speed_Fd(int offset, int tid)
 {
     RGB_from_buffer(offset);
 
@@ -200,7 +200,7 @@ int ACwithoutEdgesYUV::compute_external_speed_Fd(int offset)
                           + gamma*square(YUV[2]-CinYUV[2]) );
 }
 
-void ACwithoutEdgesYUV::updates_for_means_in1()
+void ACwithoutEdgesYUV::updates_for_means_in1(int tid)
 {
     sum_out_R -= R;
     sum_out_G -= G;
@@ -215,7 +215,7 @@ void ACwithoutEdgesYUV::updates_for_means_in1()
     return;
 }
 
-void ACwithoutEdgesYUV::updates_for_means_out1()
+void ACwithoutEdgesYUV::updates_for_means_out1(int tid )
 {
     sum_in_R -= R;
     sum_in_G -= G;
@@ -230,20 +230,20 @@ void ACwithoutEdgesYUV::updates_for_means_out1()
     return;
 }
 
-void ACwithoutEdgesYUV::updates_for_means_in2(int offset)
+void ACwithoutEdgesYUV::updates_for_means_in2(int offset,int tid)
 {
     RGB_from_buffer(offset);
 
-    updates_for_means_in1();
+    updates_for_means_in1(tid);
 
     return;
 }
 
-void ACwithoutEdgesYUV::updates_for_means_out2(int offset)
+void ACwithoutEdgesYUV::updates_for_means_out2(int offset,int tid)
 {
     RGB_from_buffer(offset);
 
-    updates_for_means_out1();
+    updates_for_means_out1(tid);
 
     return;
 }
