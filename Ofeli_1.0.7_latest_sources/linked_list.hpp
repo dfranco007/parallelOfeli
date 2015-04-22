@@ -212,7 +212,6 @@ public :
     //! All the elements in the list container are dropped (except the sentinel node) : their destructors are called, and then they are removed from the list container, leaving it with a size of 0.
     void clear();
 
-
     ///////////////////////// list moving and reading /////////////////////////
 
     //! Returns the head link.

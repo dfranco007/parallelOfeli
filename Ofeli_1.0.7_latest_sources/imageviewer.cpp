@@ -6917,7 +6917,6 @@ void ImageViewer::evaluation()
 
 void ImageViewer::openFileNameA()
 {
-    std::cout<< "A" << std::endl;
     fileNameA = QFileDialog::getOpenFileName(this,
                                             tr("Open File A"),
                                             last_directory_used,

@@ -411,7 +411,7 @@ void ActiveContour::do_one_iteration_in_cycle1()
         }
 
         clean_Lout(tid); // eliminate Lout redundant points
-    }
+    }   
 
     Lout.collectList(&Splited_Lout,sublistHead, sublistHeadPosition,0,numThreads );
     Lin.collectList(&Splited_Lin,sublistHead, sublistHeadPosition,1,numThreads);

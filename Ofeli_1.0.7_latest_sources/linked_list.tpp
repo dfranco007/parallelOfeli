@@ -242,7 +242,7 @@ inline void list<T>::push_front(const T& value)
 
     head = newNode;
 
-    if(**aux == T()) tail = head;
+    if(aux->next == NULL) tail = head;
 
     listSize++;
 
@@ -401,9 +401,7 @@ void list<T>::collectList(std::vector<list<int>* >* splitedList,Node*** &sublist
     }
 
     // Recalculate sublists head pointers positions
-    int r=0;
-    if( (listSize % numThreads) == 1) r =1;
-    int nElements = (listSize/numThreads) + r;
+    int nElements = (listSize/numThreads) + (listSize % 2);
 
     for(int i=1; i < numThreads; i++)
     {
@@ -467,9 +465,7 @@ template <typename T>
 void list<T>::initialize_sublist_control(int listNumber, int numThreads, Node*** sublistHead, int** sublistHeadPosition)
 {
     //Calculation of the number of elements assigned to each thread
-    int r=0;
-    if( (size()%numThreads) == 1) r=1;
-    int nElementsPerThread = (size()/numThreads)+r;
+    int nElementsPerThread = (listSize/numThreads)+(listSize%2);
 
     int cont=0,j=0;
     Link position = head;
