@@ -144,6 +144,7 @@ private slots :
     void adjustVerticalScrollB ( int min, int max );
     void adjustHorizontalScrollB ( int min, int max );
 
+    void save_image(std::vector<std::vector<int>* >* island);
 
 private :
 

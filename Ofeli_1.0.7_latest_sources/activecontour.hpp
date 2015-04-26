@@ -44,6 +44,7 @@
 #include <iostream> // for the objects "std::ostream" and "std::cerr"
 #include <omp.h>
 
+
 namespace ofeli
 {
 class ActiveContour
@@ -107,6 +108,9 @@ public :
     void divide_Lin();
     //! Calculates the covering of the objects found in the image
     void calculateCovering() const;
+
+    //! Isolates an island of the image
+    std::vector<std::vector<int>* >* isolateIsland();
 
 protected :
 

@@ -2446,6 +2446,10 @@ void ImageViewer::start()
         //Calculate the covering
         ac->calculateCovering();
 
+        std::vector<std::vector<int>* >* island = ac->isolateIsland();
+
+        save_image(island);
+
         time_text->setText("<font color=red>"+tr("time = ")+QString::number(elapsedTime)+" s");
         show_phi_list_value();
         statusBar()->clearMessage();
@@ -7994,6 +7998,42 @@ unsigned char ImageViewer::otsu_method(const int histogram[], int img_size)
     }
 
     return (unsigned char)(threshold);
+}
+
+
+void ImageViewer::save_image(std::vector<std::vector<int>* >* island)
+{
+        int size = island->size();
+        QImage imgIsland = QImage(size, island->at(size-1)->size(), QImage::Format_Indexed8);
+        QVector<QRgb> table(256);
+        for( int I = 0; I < 256; I++ )
+        {
+            table[I] = qRgb(I,I,I);
+        }
+        imgIsland.setColorTable(table);
+
+        //Fill up the image
+        for( int x = 0; x < imgIsland.width(); x++ )
+        {
+            int s = imgIsland.height();
+            for( int y = 0; y < s; y++)
+            {
+                if(island->at(x)->at(y) != 1)
+                {
+                    *( imgIsland.scanLine(y)+x) = 0;
+                }
+                else
+                {
+                    *( imgIsland.scanLine(y)+x) = 255;
+                }
+            }
+        }
+
+        QString fileName_save = QFileDialog::getSaveFileName(this,
+                                                             tr("Save ϕ(t=0)"),
+                                                             last_directory_used + QString(tr("/isla")),
+                                                             "BMP (*.bmp);;JPG (*.jpg);;PNG (*.png);;PPM (*.ppm);;TIFF (*.tiff);;XBM (*.xbm);;XPM (*.xpm)");
+        imgIsland.save(fileName_save,"JPEG");
 }
 
 }

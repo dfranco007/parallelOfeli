@@ -1318,4 +1318,100 @@ void ActiveContour::calculateCovering() const
     std::cout << "Recubrimiento: " << percentage << "%" << std::endl;
 }
 
+
+std::vector<std::vector<int>* >* ActiveContour::isolateIsland()
+{
+    int cont=0;
+    int size=img_width*img_height, i=0;
+    list<int>* islandPoints = new list<int>();
+    bool* visitedIslands = new bool[size];
+
+    for(int a=0; a < size; a++) visitedIslands[a] = false;
+
+    //Find a island
+    for(; i < size; i++)
+    {
+        if(phi[i] == -1) break;
+    }
+
+    int previousPoint=-1,x,y,min_x=9999999999,min_y=9999999999,max_x=-1,max_y=-1;
+    bool stop = false;
+
+    while(1)
+    {
+        find_xy_position(i,x,y);
+
+        //Take borders to make the image later
+        if(x < min_x) min_x = x;
+        if(x > max_x) max_x = x;
+        if(y < min_y) min_y = y;
+        if(y > max_y) max_y = y;
+
+        int previousPosition = i;
+
+        //No se comprueba si está fuera de la imagen
+        for(int dx=-1; dx <= 1; dx++)
+        {
+            for(int dy=-1; dy <= 1; dy++)
+            {
+                int offset = find_offset(x+dx,y+dy);
+
+                //Test for the next point of the border of the island
+                if(phi[offset] == -1 && previousPoint != offset && offset != i)
+                {
+                    stop=true;
+
+                    //Save the point
+                    previousPoint= i;
+                    islandPoints->push_front(i);
+                    visitedIslands[i] = true;
+
+                    //Continue with the next point
+                    i = offset;
+                }
+                if(stop) break;
+            }
+            if(stop)break;
+        }
+        stop = false;
+
+        //When we've make a round or the island
+        if(visitedIslands[i] || previousPosition==i) break;
+        cont++;
+
+    }//end while
+
+    //Create the isolated island
+    std::vector< std::vector<int>* >* island = new std::vector< std::vector<int>* >(max_x-min_x +1);
+    for(int i=0; i < island->size(); i++)
+       island->at(i) = new std::vector<int>(max_y-min_y+1);
+
+    //Fill up the matrix
+    for(int a=0; a < island->size(); a++)
+        for(int b=0; b < island->at(a)->size(); b++)
+            island->at(a)->at(b) = 0;
+
+    for(list<int>::iterator position = islandPoints->begin(); !position.end(); ++position)
+    {
+        int X,Y;
+        find_xy_position(*position,X,Y);
+
+        //Reajust the positions
+        X = X - min_x;
+        Y = Y - min_y;
+        island->at(X)->at(Y) = 1;
+    }
+
+    /*for(int a=0; a < island->at(0)->size(); a++)
+    {
+        for(int b=0; b < island->size(); b++)
+        {
+            std::cout << ", " << island->at(b)->at(a);
+        }std::cout << std::endl;
+    }*/
+
+    return island;
+}
+
+
 }
