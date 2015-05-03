@@ -43,7 +43,7 @@
 #include "linked_list.hpp"
 #include <iostream> // for the objects "std::ostream" and "std::cerr"
 #include <omp.h>
-
+#include <ctime>
 
 namespace ofeli
 {
@@ -204,6 +204,9 @@ private :
 
     //! Specific step reimplemented in the children active contours ACwithoutEdges and ACwithoutEdgesYUV to update the variables to calculate the means \a Cout and \a Cin before each #switch_out, in the cycle 2.
     virtual void updates_for_means_out2(int offset,int tid);
+
+    //! Collect all the results of each thread in the main variables
+    virtual void update_for_means_global();
 
 
 

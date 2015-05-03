@@ -248,6 +248,11 @@ void ACwithoutEdgesYUV::updates_for_means_out2(int offset,int tid)
     return;
 }
 
+void ACwithoutEdgesYUV::update_for_means_global()
+{
+    return;
+}
+
 int ACwithoutEdgesYUV::get_CoutR() const
 {
     return CoutR;

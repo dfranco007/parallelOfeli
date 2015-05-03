@@ -100,6 +100,8 @@ private :
     //! Updates variables #sum_in, #sum_out, #n_in and #n_out, before each #switch_out, in the cycle 2, in order to calculate means #Cout and #Cin.
     virtual void updates_for_means_out2(int offset,int tid);
 
+    //! Collect all the results of each thread in the main variables
+    virtual void update_for_means_global();
 
 
 
@@ -120,13 +122,20 @@ private :
 
     //! Sum of the intensities or grey-levels of the pixels outside the curve, i.e. pixels \f$i\f$ with \f$\phi \left( i\right) >0\f$ .
     int sum_out;
+    int* sum_out_inThread; //The same but for each thread
+
     //! Sum of the intensities or grey-levels of the pixels intside the curve, i.e. pixels \f$i\f$ with \f$\phi \left( i\right) <0\f$ .
     int sum_in;
+    int* sum_in_inThread; //The same but for each thread
 
     //! Number of pixels outside the curve, i.e. pixels \f$i\f$ with \f$\phi \left( i\right) >0\f$ .
     int n_out;
+    int* n_out_inThread; //The same but for each thread
+
     //! Number of pixels inside the curve, i.e. pixels \f$i\f$ with \f$\phi \left( i\right) <0\f$ .
     int n_in;
+    int* n_in_inThread; //The same but for each thread
+
 
 };
 

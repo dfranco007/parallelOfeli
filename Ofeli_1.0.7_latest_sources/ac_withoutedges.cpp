@@ -45,7 +45,9 @@ namespace ofeli
 ACwithoutEdges::ACwithoutEdges(const unsigned char* img_data1, int img_width1, int img_height1) :
     ActiveContour(img_data1, img_width1, img_height1,
                   true, 0.65, 0.65, 0.0, 0.0, true, 5, 2.0, 30, 3),
-    lambda_out(1), lambda_in(1), I_inThread(new int[numThreads])
+    lambda_out(1), lambda_in(1), I_inThread(new int[numThreads]), sum_out_inThread(new int[numThreads]),
+    sum_in_inThread(new int[numThreads]), n_in_inThread(new int[numThreads]),
+    n_out_inThread(new int[numThreads])
 {
     // a virtual function call in a constructor
     // but the virtual function table is solved at this level of the class hierarchy
@@ -59,7 +61,9 @@ ACwithoutEdges::ACwithoutEdges(const unsigned char* img_data1, int img_width1, i
     ActiveContour(img_data1, img_width1, img_height1,
                   hasEllipse1, init_width1, init_height1, center_x1, center_y1,
                   hasCycle2_1, kernel_length1, sigma1, Na1, Ns1),
-    lambda_out(lambda_out1), lambda_in(lambda_in1), I_inThread(new int[numThreads])
+    lambda_out(lambda_out1), lambda_in(lambda_in1), I_inThread(new int[numThreads]),
+    sum_out_inThread(new int[numThreads]), sum_in_inThread(new int[numThreads]),
+    n_in_inThread(new int[numThreads]), n_out_inThread(new int[numThreads])
 {
     // a virtual function call in a constructor
     // but the virtual function table is solved at this level of the class hierarchy
@@ -73,7 +77,9 @@ ACwithoutEdges::ACwithoutEdges(const unsigned char* img_data1, int img_width1, i
     ActiveContour(img_data1, img_width1, img_height1,
                   phi_init1,
                   hasCycle2_1, kernel_length1, sigma1, Na1, Ns1),
-    lambda_out(lambda_out1), lambda_in(lambda_in1), I_inThread(new int[numThreads])
+    lambda_out(lambda_out1), lambda_in(lambda_in1), I_inThread(new int[numThreads]),
+    sum_out_inThread(new int[numThreads]), sum_in_inThread(new int[numThreads]),
+    n_in_inThread(new int[numThreads]), n_out_inThread(new int[numThreads])
 {
     // a virtual function call in a constructor
     // but the virtual function table is solved at this level of the class hierarchy
@@ -84,7 +90,9 @@ ACwithoutEdges::ACwithoutEdges(const ACwithoutEdges& ac) :
     ActiveContour(ac),
     lambda_out(ac.lambda_out), lambda_in(ac.lambda_in), Cout(ac.Cout), Cin(ac.Cin),
     sum_out(ac.sum_out), sum_in(ac.sum_in), n_out(ac.n_out), n_in(ac.n_in),I(ac.I)
-  ,I_inThread(ac.I_inThread)
+  ,I_inThread(ac.I_inThread), sum_out_inThread(ac.sum_out_inThread),
+    sum_in_inThread(ac.sum_in_inThread), n_in_inThread(ac.n_in_inThread),
+    n_out_inThread(ac.n_out_inThread)
 {
 }
 
@@ -104,6 +112,14 @@ void ACwithoutEdges::initialize_sums()
     sum_out = 0;
     n_in = 0;
     n_out = 0;
+
+    for(int i=0; i < numThreads; i++)
+    {
+        sum_out_inThread[i]=0;
+        n_out_inThread[i]=0;
+        sum_in_inThread[i]=0;
+        n_in_inThread[i]=0;
+    }
 
     for( int offset = 0; offset < img_size; offset++ )
     {
@@ -145,28 +161,24 @@ int ACwithoutEdges::compute_external_speed_Fd(int offset, int tid)
 }
 
 void ACwithoutEdges::updates_for_means_in1(int tid)
-{
-    #pragma omp critical
-    {
-        sum_out -= I_inThread[tid];
-        n_out--;
+{ 
+    sum_out_inThread[tid] -= I_inThread[tid];
+    n_out_inThread[tid]--;
 
-        sum_in += I_inThread[tid];
-        n_in++;
-    }
+    sum_in_inThread[tid] += I_inThread[tid];
+    n_in_inThread[tid]++;
+
     return;
 }
 
 void ACwithoutEdges::updates_for_means_out1(int tid)
 {
-    #pragma omp critical
-    {
-        sum_in -= I_inThread[tid];
-        n_in--;
+    sum_in_inThread[tid] -= I_inThread[tid];
+    n_in_inThread[tid]--;
 
-        sum_out += I_inThread[tid];
-        n_out++;
-    }
+    sum_out_inThread[tid] += I_inThread[tid];
+    n_out_inThread[tid]++;
+
     return;
 }
 
@@ -187,6 +199,22 @@ void ACwithoutEdges::updates_for_means_out2(int offset,int tid)
 
     return;
 }
+
+void ACwithoutEdges::update_for_means_global()
+{
+    for(int i=0; i < numThreads; i++)
+    {
+        sum_out = sum_out + sum_out_inThread[i];
+        sum_out_inThread[i]=0;
+        n_out = n_out + n_out_inThread[i];
+        n_out_inThread[i]=0;
+        sum_in = sum_in + sum_in_inThread[i];
+        sum_in_inThread[i]=0;
+        n_in = n_in + n_in_inThread[i];
+        n_in_inThread[i]=0;
+    }
+}
+
 
 int ACwithoutEdges::get_Cout() const
 {

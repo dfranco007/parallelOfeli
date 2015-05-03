@@ -2446,9 +2446,9 @@ void ImageViewer::start()
         //Calculate the covering
         ac->calculateCovering();
 
-        std::vector<std::vector<int>* >* island = ac->isolateIsland();
+        //std::vector<std::vector<int>* >* island = ac->isolateIsland();
 
-        save_image(island);
+        //save_image(island);
 
         time_text->setText("<font color=red>"+tr("time = ")+QString::number(elapsedTime)+" s");
         show_phi_list_value();

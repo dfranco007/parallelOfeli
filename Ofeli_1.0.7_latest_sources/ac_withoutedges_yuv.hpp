@@ -118,6 +118,9 @@ private :
     //! Updates the six sums, #n_in and #n_out, before each #switch_out, in the cycle 2, in order to calculate means #CoutYUV and #CinYUV.
     virtual void updates_for_means_out2(int offset,int tid);
 
+    //! Collect all the results of each thread in the main variables
+    virtual void update_for_means_global();
+
     //! Calculates \a YUV value with a (#R,#G,#B) value.
     static void calculate_YUV(int R, int G, int B, int YUV[]);
 
