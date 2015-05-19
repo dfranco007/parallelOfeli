@@ -657,17 +657,22 @@ void ActiveContour::evolve()
 
 void ActiveContour::add_Rout_neighbor_to_Lout(int neighbor_offset,int tid)
 {
+    bool flag = false;
     // if a neighbor ∈ Rout
-
     if( phi[neighbor_offset] == 3 ) // exterior value
     {
-        phi[neighbor_offset] = 1; // outside boundary value
-
-        // neighbor ∈ Rout ==> ∈ neighbor Lout
-        Splited_Lout[tid]->push_front(neighbor_offset);
-        // due to the linked list implementation
-        // with a sentinel/dummy node after the last node and not before the first node ;
-        // 'push_front' never invalidates iterator 'Lout_point', even if 'Lout_point' points to the first node.
+        #pragma omp critical
+        {
+            if( phi[neighbor_offset] == 3 ) // exterior value
+            {
+                phi[neighbor_offset] = 1; // outside boundary value
+                flag = true;
+            }
+        }
+        if(flag)
+        {
+            Splited_Lout[tid]->push_front(neighbor_offset);
+        }
     }
 
     return;
@@ -675,16 +680,22 @@ void ActiveContour::add_Rout_neighbor_to_Lout(int neighbor_offset,int tid)
 
 void ActiveContour::add_Rin_neighbor_to_Lin(int neighbor_offset,int tid)
 {
+    bool flag = false;
     // if a neighbor ∈ Rin
     if( phi[neighbor_offset] == -3 ) // interior value
-    {
-       phi[neighbor_offset] = -1; // inside boundary value
-
-       // neighbor ∈ Rin ==> ∈ neighbor Lin
-       Splited_Lin[tid]->push_front(neighbor_offset);
-       // due to the linked list implementation
-       // with a sentinel/dummy node after the last node and not before the first node ;
-       // 'push_front' never invalidates iterator 'Lin_point', even if 'Lin_point' points to the first node.
+    {    
+       #pragma omr critical
+       {
+            if( phi[neighbor_offset] == -3 ) // interior value
+            {
+                phi[neighbor_offset] = -1; // inside boundary value
+                flag = true;
+            }
+       }
+        if(flag)
+        {
+            Splited_Lin[tid]->push_front(neighbor_offset);
+        }
     }
 
     return;
@@ -1371,7 +1382,7 @@ std::vector<std::vector<int>* >* ActiveContour::isolateIsland()
         if(phi[i] == -1) break;
     }
 
-    int previousPoint=-1,x,y,min_x=9999999999,min_y=9999999999,max_x=-1,max_y=-1;
+    int previousPoint=-1,x,y,min_x=99999999,min_y=99999999,max_x=-1,max_y=-1;
     bool stop = false;
 
     while(1)

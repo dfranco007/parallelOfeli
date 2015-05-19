@@ -338,8 +338,6 @@ inline typename list<T>::iterator list<T>::erase(iterator position)
     Link deleteNode = position.node;
     if(deleteNode == tail) tail = previousNode;
 
-    delete &position.node;
-
     listSize--;
 
     return nextNode;
@@ -355,8 +353,6 @@ inline typename list<T>::iterator list<T>::erase_after(iterator position)
     position.node->next = nextNextNode;
 
     if(nextNode == tail) tail = position.node;
-
-    delete nextNode;
 
     listSize--;
 
@@ -383,16 +379,19 @@ void list<T>::collectList(std::vector<list<int>* >* splitedList,Node*** &sublist
     head = splitedList->at(0)->head;
     sublistHead[list][0]=head;
     listSize=0;
-
+		
     for(int i=0; i < splitedList->size(); i++)
     {
         sublistHead[list][i]= splitedList->at(i)->head;
         sublistHeadPosition[list][i] = listSize +1;
 
         listSize+=  splitedList->at(i)->size();
-        if(i < splitedList->size()-1){
-            splitedList->at(i)->tail->next = splitedList->at(i+1)->head;
-            splitedList->at(i+1)->head->previous = splitedList->at(i)->tail;
+
+        if(i < splitedList->size()-1)
+		{
+
+			splitedList->at(i)->tail->next = splitedList->at(i+1)->head;            
+        	splitedList->at(i+1)->head->previous = splitedList->at(i)->tail;
         }
         else
         {
@@ -401,16 +400,23 @@ void list<T>::collectList(std::vector<list<int>* >* splitedList,Node*** &sublist
     }
 
     // Recalculate sublists head pointers positions
-    int nElements = (listSize/numThreads) + (listSize % 2);
-
-    for(int i=1; i < numThreads; i++)
+    int nElements = (listSize/numThreads);
+	if(nElements > numThreads)
+	{
+		int r=0;
+		if((listSize % numThreads) >= 1) r=1;
+		 nElements += r;
+	}	
+	
+	for(int i=1; i < numThreads; i++)
     {
-        int posHead = sublistHeadPosition[list][i];
+       
+		int posHead = sublistHeadPosition[list][i];
         if(posHead < (i * nElements) +1)
         {
             for(; posHead <= (i * nElements); posHead++)
-            {
-                sublistHead[list][i] = sublistHead[list][i]->next;
+            {   
+				sublistHead[list][i] = sublistHead[list][i]->next;
                 sublistHeadPosition[list][i]++;
             }
         }
